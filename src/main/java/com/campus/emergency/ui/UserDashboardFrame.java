@@ -71,7 +71,7 @@ public class UserDashboardFrame extends JFrame {
 
     private void initUI() {
         User currentUser = AuthenticationContext.getCurrentUser();
-        String userName = currentUser != null ? currentUser.getFullName() : "Student";
+        String userName = currentUser != null ? currentUser.getFullName() : "Student/Staff";
         String userRole = currentUser != null ? currentUser.getRole().name() : "STUDENT";
 
         setTitle("Campus Emergency Response - User Portal [" + userName + " (" + userRole + ")]");
@@ -112,12 +112,20 @@ public class UserDashboardFrame extends JFrame {
         navDashboard.setHorizontalAlignment(SwingConstants.LEFT);
         navDashboard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
 
-        ModernButton navReport = new ModernButton("Report Incident", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.DANGER);
+        ModernButton navSos = new ModernButton("ONE-TOUCH SOS", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.DANGER);
+        navSos.setHorizontalAlignment(SwingConstants.LEFT);
+        navSos.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        navSos.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        navSos.addActionListener(e -> triggerSosEmergency());
+
+        ModernButton navReport = new ModernButton("Report Incident", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.SECONDARY);
         navReport.setHorizontalAlignment(SwingConstants.LEFT);
         navReport.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
         navReport.addActionListener(e -> openReportEmergency());
 
         sideTop.add(navDashboard);
+        sideTop.add(Box.createVerticalStrut(8));
+        sideTop.add(navSos);
         sideTop.add(Box.createVerticalStrut(8));
         sideTop.add(navReport);
 
@@ -171,12 +179,18 @@ public class UserDashboardFrame extends JFrame {
         ModernButton refreshBtn = new ModernButton("Refresh", VectorIcon.Type.REFRESH, ModernButton.ButtonStyle.SECONDARY);
         refreshBtn.addActionListener(e -> refreshReports());
 
-        ModernButton bigEmergencyBtn = new ModernButton("REPORT AN EMERGENCY", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.DANGER);
-        bigEmergencyBtn.setPreferredSize(new Dimension(240, 42));
+        ModernButton sosBtn = new ModernButton("ONE-TOUCH SOS", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.DANGER);
+        sosBtn.setPreferredSize(new Dimension(170, 42));
+        sosBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        sosBtn.addActionListener(e -> triggerSosEmergency());
+
+        ModernButton bigEmergencyBtn = new ModernButton("REPORT EMERGENCY", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.PRIMARY);
+        bigEmergencyBtn.setPreferredSize(new Dimension(200, 42));
         bigEmergencyBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         bigEmergencyBtn.addActionListener(e -> openReportEmergency());
 
         ctaGroup.add(refreshBtn);
+        ctaGroup.add(sosBtn);
         ctaGroup.add(bigEmergencyBtn);
         topHeader.add(ctaGroup, BorderLayout.EAST);
 
@@ -264,18 +278,17 @@ public class UserDashboardFrame extends JFrame {
         reportsTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) {
+                if (e.getClickCount() == 2 && reportsTable.getSelectedRow() != -1) {
                     openSelectedReportDetails();
                 }
             }
         });
 
-        JScrollPane tableScrollPane = new JScrollPane(reportsTable);
-        tableScrollPane.setBorder(BorderFactory.createLineBorder(UITheme.CARD_BORDER));
-        tableScrollPane.getViewport().setBackground(Color.WHITE);
-        tableContainerPanel.add(tableScrollPane, BorderLayout.CENTER);
+        JScrollPane tableScroll = new JScrollPane(reportsTable);
+        tableScroll.setBorder(BorderFactory.createLineBorder(UITheme.CARD_BORDER));
+        tableContainerPanel.add(tableScroll, BorderLayout.CENTER);
 
-        // Empty State Panel
+        // Useful Empty State Panel
         emptyStatePanel = new JPanel(new GridBagLayout());
         emptyStatePanel.setBackground(Color.WHITE);
         JPanel emptyInner = new JPanel();
@@ -360,86 +373,274 @@ public class UserDashboardFrame extends JFrame {
                 final int finalTotal = myReports.size();
 
                 SwingUtilities.invokeLater(() -> {
-                    tableModel.setRowCount(0);
                     activeCard.setValue(String.valueOf(finalActive));
                     resolvedCard.setValue(String.valueOf(finalResolved));
                     totalCard.setValue(String.valueOf(finalTotal));
+
+                    tableModel.setRowCount(0);
 
                     if (myReports.isEmpty()) {
                         cardLayout.show(centerCardContainer, "EMPTY");
                     } else {
                         cardLayout.show(centerCardContainer, "TABLE");
-                        for (EmergencyReport rep : myReports) {
-                            Optional<Location> locOpt = locationDAO.findById(rep.getLocationId());
-                            String locStr = locOpt.map(l -> l.getBuildingName() + " " + l.getRoomNumber()).orElse("Location #" + rep.getLocationId());
 
-                            String priority = "NORMAL";
-                            for (EmergencyIncident inc : incidents) {
-                                if (inc.getReportId() == rep.getId() && inc.getPriority() != null) {
-                                    priority = inc.getPriority();
-                                    break;
-                                }
-                            }
+                        for (EmergencyReport r : myReports) {
+                            Optional<EmergencyIncident> matchedInc = incidents.stream()
+                                    .filter(inc -> inc.getReportId() == r.getId())
+                                    .findFirst();
+
+                            String priority = matchedInc.map(EmergencyIncident::getPriority).orElse("NORMAL");
+                            String status = matchedInc.map(EmergencyIncident::getStatus).orElse(r.getStatus());
+
+                            Location loc = locationDAO.findById(r.getLocationId()).orElse(null);
+                            String locStr = loc != null ? loc.getBuildingName() + " (Room " + loc.getRoomNumber() + ")" : "Location #" + r.getLocationId();
 
                             tableModel.addRow(new Object[]{
-                                    "#" + rep.getId(),
-                                    rep.getCategory(),
-                                    rep.getDescription(),
+                                    "#" + r.getId(),
+                                    r.getCategory(),
+                                    r.getDescription(),
                                     locStr,
-                                    rep.getStatus(),
+                                    status,
                                     priority
                             });
                         }
 
                         if (reportsTable.getRowCount() > 0) {
                             reportsTable.setRowSelectionInterval(0, 0);
-                            handleReportSelection();
                         }
-                    }
-
-                    if (notificationPanel != null) {
-                        notificationPanel.refreshNotifications();
                     }
                 });
             } catch (Exception e) {
-                LoggingService.error("Failed to refresh user reports: " + e.getMessage(), e);
+                LoggingService.error("Failed to refresh user dashboard reports: " + e.getMessage(), e);
             }
         });
     }
 
-    private void handleReportSelection() {
-        int row = reportsTable.getSelectedRow();
-        if (row < 0 || row >= cachedMyReports.size()) return;
-
-        EmergencyReport report = cachedMyReports.get(row);
-        selectedReportSummaryLabel.setText("Report #" + report.getId() + " (" + report.getCategory() + ") Status:");
-        activeTimelinePanel.setStatus(report.getStatus());
-    }
-
-    private void openSelectedReportDetails() {
-        int row = reportsTable.getSelectedRow();
-        if (row < 0 || row >= cachedMyReports.size()) {
-            ModernDialog.showWarning(this, "Select Report", "Please select a report row to view details.");
+    public void triggerSosEmergency() {
+        User currentUser = AuthenticationContext.getCurrentUser();
+        if (currentUser == null) {
+            ModernDialog.showError(this, "Authentication Required", "You must be logged in to trigger an SOS alert.");
             return;
         }
 
-        EmergencyReport report = cachedMyReports.get(row);
-        Optional<Location> locOpt = locationDAO.findById(report.getLocationId());
+        JDialog sosDialog = new JDialog(this, "SOS Emergency Distress Signal", true);
+        sosDialog.setSize(480, 360);
+        sosDialog.setLocationRelativeTo(this);
+        sosDialog.setResizable(false);
 
-        EmergencyIncident matchedIncident = null;
-        for (EmergencyIncident inc : cachedIncidents) {
-            if (inc.getReportId() == report.getId()) {
-                matchedIncident = inc;
-                break;
+        JPanel root = new JPanel(new BorderLayout(0, 14));
+        root.setBackground(Color.WHITE);
+        root.setBorder(new EmptyBorder(20, 24, 20, 24));
+
+        // Header
+        JPanel head = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        head.setOpaque(false);
+        JLabel alertIcon = new JLabel(new VectorIcon(VectorIcon.Type.ALERT, 24, UITheme.EMERGENCY_RED));
+        head.add(alertIcon);
+
+        JLabel titleLbl = new JLabel("ONE-TOUCH SOS EMERGENCY");
+        titleLbl.setFont(UITheme.FONT_TITLE_LARGE);
+        titleLbl.setForeground(UITheme.EMERGENCY_RED);
+        head.add(titleLbl);
+        root.add(head, BorderLayout.NORTH);
+
+        // Body
+        JPanel body = new JPanel();
+        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
+        body.setOpaque(false);
+
+        JLabel descLbl = new JLabel("<html><b>TRANSMIT IMMEDIATE HIGH-PRIORITY DISTRESS SIGNAL</b><br>This will alert Campus Police, Emergency Dispatch, and First Responders with maximum priority.</html>");
+        descLbl.setFont(UITheme.FONT_BODY);
+        descLbl.setForeground(UITheme.TEXT_PRIMARY);
+        descLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        body.add(descLbl);
+        body.add(Box.createVerticalStrut(14));
+
+        JLabel locPrompt = new JLabel("Confirm Your Current Location:");
+        locPrompt.setFont(UITheme.FONT_BODY_BOLD);
+        locPrompt.setForeground(UITheme.TEXT_SECONDARY);
+        locPrompt.setAlignmentX(Component.LEFT_ALIGNMENT);
+        body.add(locPrompt);
+        body.add(Box.createVerticalStrut(4));
+
+        JComboBox<ReportEmergencyFrame.LocationItem> locBox = new JComboBox<>();
+        locBox.setFont(UITheme.FONT_BODY);
+        locBox.setAlignmentX(Component.LEFT_ALIGNMENT);
+        locBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+
+        ThreadPoolManager.getInstance().submit(() -> {
+            try {
+                List<Location> locs = locationDAO.findAll();
+                SwingUtilities.invokeLater(() -> {
+                    for (Location l : locs) {
+                        locBox.addItem(new ReportEmergencyFrame.LocationItem(l));
+                    }
+                    if (locBox.getItemCount() > 0) {
+                        locBox.setSelectedIndex(0);
+                    }
+                });
+            } catch (Exception ex) {
+                LoggingService.error("Failed to load locations for SOS: " + ex.getMessage(), ex);
             }
-        }
+        });
+        body.add(locBox);
+        body.add(Box.createVerticalStrut(12));
 
-        showReportDetailsModal(report, locOpt.orElse(null), matchedIncident);
+        JLabel warningBadge = new JLabel("Priority: CRITICAL | Automatic Notification: ALL RESPONDERS");
+        warningBadge.setFont(UITheme.FONT_META);
+        warningBadge.setForeground(UITheme.EMERGENCY_RED);
+        warningBadge.setAlignmentX(Component.LEFT_ALIGNMENT);
+        body.add(warningBadge);
+
+        root.add(body, BorderLayout.CENTER);
+
+        // Footer Buttons
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        btnPanel.setOpaque(false);
+
+        ModernButton cancelBtn = new ModernButton("Cancel", ModernButton.ButtonStyle.SECONDARY);
+        cancelBtn.setPreferredSize(new Dimension(95, 38));
+        cancelBtn.addActionListener(e -> sosDialog.dispose());
+        btnPanel.add(cancelBtn);
+
+        ModernButton transmitBtn = new ModernButton("BROADCAST SOS NOW", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.DANGER);
+        transmitBtn.setPreferredSize(new Dimension(200, 38));
+        transmitBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        transmitBtn.addActionListener(e -> {
+            ReportEmergencyFrame.LocationItem selLoc = (ReportEmergencyFrame.LocationItem) locBox.getSelectedItem();
+            int locId = (selLoc != null && selLoc.getLocation() != null) ? selLoc.getLocation().getId() : 1;
+            String locName = (selLoc != null && selLoc.getLocation() != null) ? selLoc.getLocation().getBuildingName() : "Campus Main Hall";
+
+            transmitBtn.setEnabled(false);
+            cancelBtn.setEnabled(false);
+
+            ThreadPoolManager.getInstance().submit(() -> {
+                try {
+                    String desc = "INSTANT SOS PANIC ALERT: User " + currentUser.getFullName() + " (" + currentUser.getUsername()
+                            + ") triggered emergency SOS distress beacon at " + locName + ". Immediate on-scene dispatch requested!";
+                    EmergencyReport report = emergencyManager.createReport(
+                            currentUser, "SECURITY", desc, locId, 1, null, null
+                    );
+
+                    SwingUtilities.invokeLater(() -> {
+                        sosDialog.dispose();
+                        refreshReports();
+                        showSosSuccessDialog(report);
+                    });
+                } catch (Exception ex) {
+                    LoggingService.error("Failed to broadcast SOS alert: " + ex.getMessage(), ex);
+                    SwingUtilities.invokeLater(() -> {
+                        transmitBtn.setEnabled(true);
+                        cancelBtn.setEnabled(true);
+                        ModernDialog.showError(sosDialog, "SOS Broadcast Error", "Failed to broadcast SOS: " + ex.getMessage());
+                    });
+                }
+            });
+        });
+        btnPanel.add(transmitBtn);
+
+        root.add(btnPanel, BorderLayout.SOUTH);
+        sosDialog.setContentPane(root);
+        sosDialog.setVisible(true);
     }
 
-    private void showReportDetailsModal(EmergencyReport report, Location loc, EmergencyIncident inc) {
+    private void showSosSuccessDialog(EmergencyReport report) {
+        JDialog successDialog = new JDialog(this, "SOS Alert Broadcasted", true);
+        successDialog.setSize(460, 300);
+        successDialog.setLocationRelativeTo(this);
+        successDialog.setResizable(false);
+
+        JPanel root = new JPanel(new BorderLayout(0, 14));
+        root.setBackground(Color.WHITE);
+        root.setBorder(new EmptyBorder(20, 24, 20, 24));
+
+        JPanel head = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        head.setOpaque(false);
+        head.add(new JLabel(new VectorIcon(VectorIcon.Type.CHECK, 24, UITheme.SUCCESS_GREEN)));
+
+        JLabel title = new JLabel("SOS DISTRESS BEACON ACTIVE");
+        title.setFont(UITheme.FONT_TITLE);
+        title.setForeground(UITheme.EMERGENCY_RED);
+        head.add(title);
+        root.add(head, BorderLayout.NORTH);
+
+        ModernCardPanel card = new ModernCardPanel(new GridLayout(3, 2, 8, 8), 12);
+        card.add(createModalFieldLabel("Emergency ID:"));
+        card.add(createModalFieldValue("#" + report.getId()));
+        card.add(createModalFieldLabel("Priority:"));
+        card.add(createModalFieldValue("CRITICAL (HIGHEST)"));
+        card.add(createModalFieldLabel("Dispatch Status:"));
+        card.add(createModalFieldValue("DISPATCHED TO FIELD TEAMS"));
+
+        JPanel center = new JPanel(new BorderLayout(0, 8));
+        center.setOpaque(false);
+        center.add(card, BorderLayout.NORTH);
+
+        JLabel note = new JLabel("<html>Campus Security and Medical First Responders have been notified.<br><b>Stay in a safe location until help arrives.</b></html>");
+        note.setFont(UITheme.FONT_BODY);
+        note.setForeground(UITheme.TEXT_PRIMARY);
+        center.add(note, BorderLayout.CENTER);
+
+        root.add(center, BorderLayout.CENTER);
+
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        btnPanel.setOpaque(false);
+        ModernButton okBtn = new ModernButton("Acknowledge & Dismiss", ModernButton.ButtonStyle.PRIMARY);
+        okBtn.setPreferredSize(new Dimension(180, 36));
+        okBtn.addActionListener(e -> successDialog.dispose());
+        btnPanel.add(okBtn);
+        root.add(btnPanel, BorderLayout.SOUTH);
+
+        successDialog.setContentPane(root);
+        successDialog.setVisible(true);
+    }
+
+    private void handleReportSelection() {
+        int selectedRow = reportsTable.getSelectedRow();
+        if (selectedRow < 0 || selectedRow >= cachedMyReports.size()) {
+            return;
+        }
+
+        EmergencyReport report = cachedMyReports.get(selectedRow);
+        Optional<EmergencyIncident> matchedInc = cachedIncidents.stream()
+                .filter(inc -> inc.getReportId() == report.getId())
+                .findFirst();
+
+        String status = matchedInc.map(EmergencyIncident::getStatus).orElse(report.getStatus());
+        selectedReportSummaryLabel.setText("Selected Report #" + report.getId() + " (" + report.getCategory() + "):");
+        activeTimelinePanel.setStatus(status);
+    }
+
+    private void openReportEmergency() {
+        ReportEmergencyFrame reportFrame = new ReportEmergencyFrame(
+                emergencyManager,
+                locationDAO,
+                this::refreshReports
+        );
+        reportFrame.setVisible(true);
+    }
+
+    private void openSelectedReportDetails() {
+        int selectedRow = reportsTable.getSelectedRow();
+        if (selectedRow < 0 || selectedRow >= cachedMyReports.size()) {
+            ModernDialog.showWarning(this, "Select Report", "Please select a report from the table to view its full details.");
+            return;
+        }
+
+        EmergencyReport report = cachedMyReports.get(selectedRow);
+        EmergencyIncident inc = cachedIncidents.stream()
+                .filter(i -> i.getReportId() == report.getId())
+                .findFirst()
+                .orElse(null);
+
+        Location loc = locationDAO.findById(report.getLocationId()).orElse(null);
+
+        showReportDetailsModal(report, inc, loc);
+    }
+
+    private void showReportDetailsModal(EmergencyReport report, EmergencyIncident inc, Location loc) {
         JDialog modal = new JDialog(this, "Emergency Report Details - #" + report.getId(), true);
-        modal.setSize(520, 500);
+        modal.setSize(520, 480);
         modal.setLocationRelativeTo(this);
         modal.setResizable(false);
 
@@ -544,15 +745,15 @@ public class UserDashboardFrame extends JFrame {
         return l;
     }
 
-    public void openReportEmergency() {
-        ReportEmergencyFrame reportFrame = new ReportEmergencyFrame(emergencyManager, locationDAO, this::refreshReports);
-        reportFrame.setVisible(true);
-    }
-
-    public void handleLogout() {
+    private void handleLogout() {
         AuthenticationContext.clear();
-        LoginFrame loginFrame = new LoginFrame();
-        loginFrame.setVisible(true);
         dispose();
+        SwingUtilities.invokeLater(() -> {
+            LoginFrame loginFrame = new LoginFrame(
+                    ServiceRegistry.getInstance().getIdentityService(),
+                    ServiceRegistry.getInstance()
+            );
+            loginFrame.setVisible(true);
+        });
     }
 }
