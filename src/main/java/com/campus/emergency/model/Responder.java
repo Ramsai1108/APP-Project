@@ -1,63 +1,39 @@
 package com.campus.emergency.model;
 
-/**
- * Responder entity representing personnel dispatched during emergencies.
- */
-public class Responder extends BaseEntity {
-    private Long userId;
-    private String fullName;
+public class Responder {
+    private int id;
+    private int userId;
+    private String badgeNumber;
     private String specialization;
-    private String phone;
-    private String dutyStatus;
-    private Long assignedLocationId;
+    private String status; // AVAILABLE, DISPATCHED, ON_BREAK, OFFLINE
+    private Integer currentLocationId;
 
     public Responder() {}
 
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
+    public Responder(int id, int userId, String badgeNumber, String specialization, String status, Integer currentLocationId) {
+        this.id = id;
         this.userId = userId;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getSpecialization() {
-        return specialization;
-    }
-
-    public void setSpecialization(String specialization) {
+        this.badgeNumber = badgeNumber;
         this.specialization = specialization;
+        this.status = status;
+        this.currentLocationId = currentLocationId;
     }
 
-    public String getPhone() {
-        return phone;
-    }
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
+    public int getUserId() { return userId; }
+    public void setUserId(int userId) { this.userId = userId; }
 
-    public String getDutyStatus() {
-        return dutyStatus;
-    }
+    public String getBadgeNumber() { return badgeNumber; }
+    public void setBadgeNumber(String badgeNumber) { this.badgeNumber = badgeNumber; }
 
-    public void setDutyStatus(String dutyStatus) {
-        this.dutyStatus = dutyStatus;
-    }
+    public String getSpecialization() { return specialization; }
+    public void setSpecialization(String specialization) { this.specialization = specialization; }
 
-    public Long getAssignedLocationId() {
-        return assignedLocationId;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public void setAssignedLocationId(Long assignedLocationId) {
-        this.assignedLocationId = assignedLocationId;
-    }
+    public Integer getCurrentLocationId() { return currentLocationId; }
+    public void setCurrentLocationId(Integer currentLocationId) { this.currentLocationId = currentLocationId; }
 }

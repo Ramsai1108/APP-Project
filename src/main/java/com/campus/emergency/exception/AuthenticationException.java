@@ -1,10 +1,6 @@
 package com.campus.emergency.exception;
 
-/**
- * Authentication failure exception.
- */
-public class AuthenticationException extends CampusEmergencyException {
-
+public class AuthenticationException extends Exception {
     public AuthenticationException(String message) {
         super(message);
     }

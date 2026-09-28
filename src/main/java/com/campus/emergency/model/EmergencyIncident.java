@@ -2,93 +2,43 @@ package com.campus.emergency.model;
 
 import java.time.LocalDateTime;
 
-/**
- * EmergencyIncident entity representing triaged and managed emergency cases.
- */
-public class EmergencyIncident extends BaseEntity {
-    private Long reportId;
-    private double calculatedPriority;
-    private Double overridePriority;
-    private double effectivePriority;
-    private String status;
-    private Long triagedByUserId;
-    private LocalDateTime triagedAt;
+public class EmergencyIncident {
+    private int id;
+    private int reportId;
+    private String priority; // LOW, MEDIUM, HIGH, CRITICAL
+    private String status; // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+    private Integer assignedDispatcherId;
+    private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
-    private LocalDateTime closedAt;
 
     public EmergencyIncident() {}
 
-    public Long getReportId() {
-        return reportId;
-    }
-
-    public void setReportId(Long reportId) {
+    public EmergencyIncident(int id, int reportId, String priority, String status, Integer assignedDispatcherId) {
+        this.id = id;
         this.reportId = reportId;
-    }
-
-    public double getCalculatedPriority() {
-        return calculatedPriority;
-    }
-
-    public void setCalculatedPriority(double calculatedPriority) {
-        this.calculatedPriority = calculatedPriority;
-    }
-
-    public Double getOverridePriority() {
-        return overridePriority;
-    }
-
-    public void setOverridePriority(Double overridePriority) {
-        this.overridePriority = overridePriority;
-    }
-
-    public double getEffectivePriority() {
-        if (overridePriority != null) return overridePriority;
-        if (effectivePriority > 0) return effectivePriority;
-        return calculatedPriority;
-    }
-
-    public void setEffectivePriority(double effectivePriority) {
-        this.effectivePriority = effectivePriority;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
+        this.priority = priority;
         this.status = status;
+        this.assignedDispatcherId = assignedDispatcherId;
     }
 
-    public Long getTriagedByUserId() {
-        return triagedByUserId;
-    }
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
-    public void setTriagedByUserId(Long triagedByUserId) {
-        this.triagedByUserId = triagedByUserId;
-    }
+    public int getReportId() { return reportId; }
+    public void setReportId(int reportId) { this.reportId = reportId; }
 
-    public LocalDateTime getTriagedAt() {
-        return triagedAt;
-    }
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
 
-    public void setTriagedAt(LocalDateTime triagedAt) {
-        this.triagedAt = triagedAt;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public LocalDateTime getResolvedAt() {
-        return resolvedAt;
-    }
+    public Integer getAssignedDispatcherId() { return assignedDispatcherId; }
+    public void setAssignedDispatcherId(Integer assignedDispatcherId) { this.assignedDispatcherId = assignedDispatcherId; }
 
-    public void setResolvedAt(LocalDateTime resolvedAt) {
-        this.resolvedAt = resolvedAt;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public LocalDateTime getClosedAt() {
-        return closedAt;
-    }
-
-    public void setClosedAt(LocalDateTime closedAt) {
-        this.closedAt = closedAt;
-    }
+    public LocalDateTime getResolvedAt() { return resolvedAt; }
+    public void setResolvedAt(LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
 }

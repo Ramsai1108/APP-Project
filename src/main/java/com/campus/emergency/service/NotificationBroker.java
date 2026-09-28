@@ -1,64 +1,102 @@
 package com.campus.emergency.service;
 
-import com.campus.emergency.model.Notification;
-import com.campus.emergency.model.NotificationChannelType;
-
+import com.campus.emergency.infrastructure.LoggingService;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
-/**
- * Service interface for Notification Broker & Emergency Alert System.
- * Manages notification creation, routing, multi-channel dispatch, recipient resolution, and status tracking.
- */
-public interface NotificationBroker {
+public class NotificationBroker {
 
-    /**
-     * Dispatch notification to a specific recipient over designated channels based on priority level.
-     */
-    void dispatchNotification(Notification notification, String priorityLevel);
+    public enum NotificationType {
+        PUSH, SMS, EMAIL, IN_APP
+    }
 
-    /**
-     * Helper method to notify dispatchers/admins of a new emergency report.
-     */
-    void notifyEmergencyCreated(Long incidentId, Long reporterId, String category, String location, double priorityScore);
+    public enum EventType {
+        EMERGENCY_REPORTED,
+        INCIDENT_ACKNOWLEDGED,
+        RESOURCE_DISPATCHED,
+        STATUS_CHANGED,
+        INCIDENT_RESOLVED,
+        RESPONDER_ASSIGNED,
+        RESOURCE_ASSIGNED,
+        DISPATCH_UPDATED,
+        RESOURCE_RELEASED,
+        LOCATION_UPDATED
+    }
 
-    /**
-     * Helper method to notify reporter, responder, and dispatcher when resources/responders are dispatched.
-     */
-    void notifyResourceDispatched(Long incidentId, Long reporterId, Long responderUserId, Long dispatcherUserId, String details);
+    public static class NotificationMessage {
+        private final EventType eventType;
+        private final String recipient;
+        private final String content;
+        private final NotificationType type;
+        private final LocalDateTime timestamp;
 
-    /**
-     * Helper method to notify relevant parties when an incident status changes.
-     */
-    void notifyIncidentStatusChanged(Long incidentId, Long reporterId, Long responderUserId, String oldStatus, String newStatus);
+        public NotificationMessage(EventType eventType, String recipient, String content, NotificationType type) {
+            this.eventType = eventType;
+            this.recipient = recipient;
+            this.content = content;
+            this.type = type;
+            this.timestamp = LocalDateTime.now();
+        }
 
-    /**
-     * Determine supported channels for a given priority level.
-     */
-    Set<NotificationChannelType> determineChannelsForPriority(String priorityLevel);
+        public EventType getEventType() { return eventType; }
+        public String getRecipient() { return recipient; }
+        public String getContent() { return content; }
+        public NotificationType getType() { return type; }
+        public LocalDateTime getTimestamp() { return timestamp; }
+    }
 
-    /**
-     * Get notification history for a user.
-     */
-    List<Notification> getNotificationsForUser(Long userId);
+    private final List<NotificationMessage> sentNotifications = Collections.synchronizedList(new ArrayList<>());
 
-    /**
-     * Get unread notifications for a user.
-     */
-    List<Notification> getUnreadNotificationsForUser(Long userId);
+    public void notifyEvent(EventType eventType, String recipient, String message, NotificationType type) {
+        NotificationMessage notification = new NotificationMessage(eventType, recipient, message, type);
+        sentNotifications.add(notification);
 
-    /**
-     * Mark a notification as read.
-     */
-    boolean markAsRead(Long notificationId, Long requestingUserId);
+        LoggingService.info(String.format("[NOTIFICATION - %s - %s] To: %s | Message: %s",
+                eventType, type, recipient, message));
+    }
 
-    /**
-     * Mark all notifications as read for a user.
-     */
-    boolean markAllAsRead(Long userId);
+    public void sendNotification(String recipient, String message, NotificationType type) {
+        notifyEvent(EventType.STATUS_CHANGED, recipient, message, type);
+    }
 
-    /**
-     * Count unread notifications for a user.
-     */
-    int countUnreadForUser(Long userId);
+    public List<NotificationMessage> getSentNotifications() {
+        return new ArrayList<>(sentNotifications);
+    }
+
+    public List<NotificationMessage> getNotificationsForUser(com.campus.emergency.model.User user) throws com.campus.emergency.exception.EmergencyProcessingException {
+        if (user == null) {
+            throw new com.campus.emergency.exception.EmergencyProcessingException("Authentication required to retrieve notifications");
+        }
+
+        String userIdStr = String.valueOf(user.getId());
+        String usernameStr = user.getUsername() != null ? user.getUsername() : "";
+        com.campus.emergency.model.Role role = user.getRole();
+
+        List<NotificationMessage> userNotifications = new ArrayList<>();
+        synchronized (sentNotifications) {
+            for (NotificationMessage msg : sentNotifications) {
+                String r = msg.getRecipient();
+                if (r == null) continue;
+
+                if (r.equalsIgnoreCase("ALL") || r.equalsIgnoreCase("ALL_STAKEHOLDERS") ||
+                        r.equalsIgnoreCase(userIdStr) || r.equalsIgnoreCase(usernameStr)) {
+                    userNotifications.add(msg);
+                } else if ((role == com.campus.emergency.model.Role.DISPATCHER || role == com.campus.emergency.model.Role.ADMIN) &&
+                        r.equalsIgnoreCase("DISPATCH_CENTER")) {
+                    userNotifications.add(msg);
+                } else if (role == com.campus.emergency.model.Role.STAFF && r.equalsIgnoreCase("STAFF")) {
+                    userNotifications.add(msg);
+                } else if (role == com.campus.emergency.model.Role.STUDENT && r.equalsIgnoreCase("STUDENT")) {
+                    userNotifications.add(msg);
+                }
+            }
+        }
+        return userNotifications;
+    }
+
+    public void clearNotifications() {
+        sentNotifications.clear();
+    }
 }

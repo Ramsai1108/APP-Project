@@ -1,207 +1,287 @@
 package com.campus.emergency.ui;
 
-import com.campus.emergency.dao.impl.EmergencyReportDaoImpl;
-import com.campus.emergency.exception.AuthenticationException;
-import com.campus.emergency.exception.DatabaseAccessException;
+import com.campus.emergency.infrastructure.LoggingService;
+import com.campus.emergency.infrastructure.ThreadPoolManager;
+import com.campus.emergency.model.Role;
 import com.campus.emergency.model.User;
-import com.campus.emergency.service.EmergencyManager;
+import com.campus.emergency.security.AuthenticationContext;
 import com.campus.emergency.service.IdentityService;
-import com.campus.emergency.service.impl.EmergencyManagerImpl;
-import com.formdev.flatlaf.FlatDarkLaf;
+import com.campus.emergency.service.ServiceRegistry;
+import com.campus.emergency.ui.components.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
 
-/**
- * Modern Swing GUI Login Window for Smart Campus Emergency System.
- */
 public class LoginFrame extends JFrame {
-
     private final IdentityService identityService;
-    private final EmergencyManager emergencyManager;
+    private final ServiceRegistry serviceRegistry;
 
-    private JTextField emailField;
-    private JPasswordField passwordField;
-    private JButton loginButton;
+    private ModernTextField usernameField;
+    private ModernPasswordField passwordField;
+    private ModernButton loginButton;
+    private ModernButton registerButton;
+    private JCheckBox rememberMeBox;
     private JLabel statusLabel;
 
+    public LoginFrame() {
+        this(ServiceRegistry.getInstance().getIdentityService(), ServiceRegistry.getInstance());
+    }
+
     public LoginFrame(IdentityService identityService) {
-        this.identityService = identityService;
-        this.emergencyManager = new EmergencyManagerImpl(new EmergencyReportDaoImpl());
+        this(identityService, ServiceRegistry.getInstance());
+    }
+
+    public LoginFrame(IdentityService identityService, ServiceRegistry serviceRegistry) {
+        this.identityService = (identityService != null) ? identityService : ServiceRegistry.getInstance().getIdentityService();
+        this.serviceRegistry = (serviceRegistry != null) ? serviceRegistry : ServiceRegistry.getInstance();
         initUI();
     }
 
     private void initUI() {
-        FlatDarkLaf.setup();
-        setTitle("Smart Campus Emergency System - Login");
-        setSize(480, 520);
+        setTitle("Campus Emergency Response System - Login");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(800, 480);
         setLocationRelativeTo(null);
         setResizable(false);
 
-        JPanel mainPanel = new JPanel();
-        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setBorder(new EmptyBorder(30, 40, 30, 40));
-        mainPanel.setBackground(new Color(30, 33, 40));
+        JPanel root = new JPanel(new GridLayout(1, 2));
+        root.setBackground(Color.WHITE);
 
-        // Header Title
-        JLabel titleLabel = new JLabel("CAMPUS EMERGENCY");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        titleLabel.setForeground(new Color(230, 70, 70));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JLabel subtitleLabel = new JLabel("Authentication & Resource Portal");
-        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        subtitleLabel.setForeground(new Color(170, 175, 185));
-        subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // Input Form Panel
-        JPanel formPanel = new JPanel(new GridLayout(4, 1, 10, 10));
-        formPanel.setOpaque(false);
-        formPanel.setMaximumSize(new Dimension(380, 180));
-
-        JLabel emailLabel = new JLabel("Email Address:");
-        emailLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        emailField = new JTextField();
-        emailField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-
-        JLabel passwordLabel = new JLabel("Password:");
-        passwordLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        passwordField = new JPasswordField();
-        passwordField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-
-        KeyAdapter enterKeyListener = new KeyAdapter() {
+        // LEFT HERO PANEL (Deep Navy Branding)
+        JPanel leftHero = new JPanel(new BorderLayout(0, 20)) {
             @Override
-            public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    performLogin();
-                }
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                UITheme.applyQualityRenderingHints(g2);
+                GradientPaint gp = new GradientPaint(0, 0, UITheme.PRIMARY_DARK, getWidth(), getHeight(), new Color(30, 41, 59));
+                g2.setPaint(gp);
+                g2.fillRect(0, 0, getWidth(), getHeight());
+                g2.dispose();
             }
         };
-        emailField.addKeyListener(enterKeyListener);
-        passwordField.addKeyListener(enterKeyListener);
+        leftHero.setBorder(new EmptyBorder(40, 40, 40, 40));
 
-        formPanel.add(emailLabel);
-        formPanel.add(emailField);
-        formPanel.add(passwordLabel);
-        formPanel.add(passwordField);
+        JPanel brandContent = new JPanel();
+        brandContent.setLayout(new BoxLayout(brandContent, BoxLayout.Y_AXIS));
+        brandContent.setOpaque(false);
 
-        loginButton = new JButton("LOGIN TO PORTAL");
-        loginButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        loginButton.setBackground(new Color(40, 120, 220));
-        loginButton.setForeground(Color.WHITE);
-        loginButton.setFocusPainted(false);
-        loginButton.setMaximumSize(new Dimension(380, 45));
-        loginButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        loginButton.addActionListener(e -> performLogin());
+        JLabel badge = new JLabel("EMERGENCY OPS PORTAL");
+        badge.setFont(UITheme.FONT_BADGE);
+        badge.setForeground(new Color(147, 197, 253));
+        brandContent.add(badge);
+        brandContent.add(Box.createVerticalStrut(12));
+
+        JLabel title1 = new JLabel("Smart Campus");
+        title1.setFont(UITheme.FONT_TITLE_XL);
+        title1.setForeground(Color.WHITE);
+        brandContent.add(title1);
+
+        JLabel title2 = new JLabel("Emergency Response");
+        title2.setFont(UITheme.FONT_TITLE_XL);
+        title2.setForeground(Color.WHITE);
+        brandContent.add(title2);
+        brandContent.add(Box.createVerticalStrut(16));
+
+        JLabel tagline = new JLabel("<html>Fast reporting. Coordinated response.<br>Safer campus for everyone.</html>");
+        tagline.setFont(UITheme.FONT_BODY);
+        tagline.setForeground(new Color(203, 213, 225));
+        brandContent.add(tagline);
+        brandContent.add(Box.createVerticalStrut(30));
+
+        JLabel f1 = new JLabel("●  24/7 Dispatch Center Coordination");
+        f1.setFont(UITheme.FONT_SMALL);
+        f1.setForeground(new Color(148, 163, 184));
+        brandContent.add(f1);
+        brandContent.add(Box.createVerticalStrut(8));
+
+        JLabel f2 = new JLabel("●  Real-time Priority & Status Tracking");
+        f2.setFont(UITheme.FONT_SMALL);
+        f2.setForeground(new Color(148, 163, 184));
+        brandContent.add(f2);
+        brandContent.add(Box.createVerticalStrut(8));
+
+        JLabel f3 = new JLabel("●  Secure Role-Based Authorization");
+        f3.setFont(UITheme.FONT_SMALL);
+        f3.setForeground(new Color(148, 163, 184));
+        brandContent.add(f3);
+
+        leftHero.add(brandContent, BorderLayout.CENTER);
+
+        JLabel versionLabel = new JLabel("Campus Emergency System v1.0.0");
+        versionLabel.setFont(UITheme.FONT_SMALL);
+        versionLabel.setForeground(new Color(100, 116, 139));
+        leftHero.add(versionLabel, BorderLayout.SOUTH);
+
+        root.add(leftHero);
+
+        // RIGHT LOGIN CARD
+        JPanel rightCard = new JPanel(new BorderLayout(0, 16));
+        rightCard.setBackground(Color.WHITE);
+        rightCard.setBorder(new EmptyBorder(36, 40, 36, 40));
+
+        JPanel formHeader = new JPanel(new GridLayout(2, 1, 0, 4));
+        formHeader.setOpaque(false);
+        JLabel signInTitle = new JLabel("Sign In to Portal");
+        signInTitle.setFont(UITheme.FONT_TITLE_LARGE);
+        signInTitle.setForeground(UITheme.TEXT_PRIMARY);
+        formHeader.add(signInTitle);
+
+        JLabel signInSubtitle = new JLabel("Enter your campus credentials to continue");
+        signInSubtitle.setFont(UITheme.FONT_BODY);
+        signInSubtitle.setForeground(UITheme.TEXT_SECONDARY);
+        formHeader.add(signInSubtitle);
+
+        rightCard.add(formHeader, BorderLayout.NORTH);
+
+        JPanel formBody = new JPanel();
+        formBody.setLayout(new BoxLayout(formBody, BoxLayout.Y_AXIS));
+        formBody.setOpaque(false);
+
+        JLabel userLabel = new JLabel("Username");
+        userLabel.setFont(UITheme.FONT_BODY_BOLD);
+        userLabel.setForeground(UITheme.TEXT_SECONDARY);
+        formBody.add(userLabel);
+        formBody.add(Box.createVerticalStrut(6));
+
+        usernameField = new ModernTextField("e.g. student_john");
+        formBody.add(usernameField);
+        formBody.add(Box.createVerticalStrut(14));
+
+        JLabel passLabel = new JLabel("Password");
+        passLabel.setFont(UITheme.FONT_BODY_BOLD);
+        passLabel.setForeground(UITheme.TEXT_SECONDARY);
+        formBody.add(passLabel);
+        formBody.add(Box.createVerticalStrut(6));
+
+        passwordField = new ModernPasswordField("Enter your password");
+        formBody.add(passwordField);
+        formBody.add(Box.createVerticalStrut(10));
+
+        JPanel optionsRow = new JPanel(new BorderLayout());
+        optionsRow.setOpaque(false);
+        rememberMeBox = new JCheckBox("Remember me");
+        rememberMeBox.setFont(UITheme.FONT_SMALL);
+        rememberMeBox.setForeground(UITheme.TEXT_SECONDARY);
+        rememberMeBox.setOpaque(false);
+        rememberMeBox.setSelected(true);
+        optionsRow.add(rememberMeBox, BorderLayout.WEST);
+
+        JLabel forgotLabel = new JLabel("Need help?");
+        forgotLabel.setFont(UITheme.FONT_SMALL);
+        forgotLabel.setForeground(UITheme.ACCENT_BLUE);
+        forgotLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        forgotLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                ModernDialog.showInfo(LoginFrame.this, "Campus IT Helpdesk", "Please contact Campus Security or IT support to reset your password.");
+            }
+        });
+        optionsRow.add(forgotLabel, BorderLayout.EAST);
+        formBody.add(optionsRow);
+        formBody.add(Box.createVerticalStrut(16));
 
         statusLabel = new JLabel(" ");
-        statusLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
-        statusLabel.setForeground(new Color(240, 90, 90));
-        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        statusLabel.setFont(UITheme.FONT_SMALL);
+        statusLabel.setForeground(UITheme.EMERGENCY_RED);
+        formBody.add(statusLabel);
+        formBody.add(Box.createVerticalStrut(10));
 
-        mainPanel.add(titleLabel);
-        mainPanel.add(Box.createRigidArea(new Dimension(0, 5)));
-        mainPanel.add(subtitleLabel);
-        mainPanel.add(Box.createRigidArea(new Dimension(0, 30)));
-        mainPanel.add(formPanel);
-        mainPanel.add(Box.createRigidArea(new Dimension(0, 20)));
-        mainPanel.add(loginButton);
-        mainPanel.add(Box.createRigidArea(new Dimension(0, 15)));
-        mainPanel.add(statusLabel);
+        loginButton = new ModernButton("Sign In", ModernButton.ButtonStyle.PRIMARY);
+        loginButton.setPreferredSize(new Dimension(300, 40));
+        loginButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        formBody.add(loginButton);
+        formBody.add(Box.createVerticalStrut(10));
 
-        add(mainPanel);
+        registerButton = new ModernButton("Create New Account", ModernButton.ButtonStyle.OUTLINE);
+        registerButton.setPreferredSize(new Dimension(300, 38));
+        registerButton.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        formBody.add(registerButton);
+
+        rightCard.add(formBody, BorderLayout.CENTER);
+        root.add(rightCard);
+
+        add(root);
+
+        loginButton.addActionListener(e -> handleLogin());
+        registerButton.addActionListener(e -> openRegistration());
+        getRootPane().setDefaultButton(loginButton);
     }
 
-    private void performLogin() {
-        String email = emailField.getText().trim();
-        String password = new String(passwordField.getPassword());
+    public void handleLogin() {
+        String username = usernameField.getText() != null ? usernameField.getText().trim() : "";
+        char[] passwordChars = passwordField.getPassword();
+        String password = new String(passwordChars);
 
-        statusLabel.setText("Authenticating...");
-        statusLabel.setForeground(new Color(150, 200, 255));
-
-        try {
-            User user = identityService.authenticate(email, password);
-            statusLabel.setText("Login Successful! Redirecting...");
-            statusLabel.setForeground(new Color(80, 200, 120));
-
-            redirectToDashboard(user);
-
-        } catch (AuthenticationException e) {
-            statusLabel.setText(e.getMessage());
-            statusLabel.setForeground(new Color(240, 90, 90));
-            JOptionPane.showMessageDialog(this, e.getMessage(), "Authentication Failure", JOptionPane.ERROR_MESSAGE);
-        } catch (DatabaseAccessException e) {
-            statusLabel.setText("Database Connection Error. Try again.");
-            statusLabel.setForeground(new Color(240, 90, 90));
-            JOptionPane.showMessageDialog(this, "Database Connection Error: " + e.getMessage(), "System Error", JOptionPane.ERROR_MESSAGE);
-        } catch (Exception e) {
-            statusLabel.setText("An unexpected error occurred.");
-            statusLabel.setForeground(new Color(240, 90, 90));
-        }
-    }
-
-    private void redirectToDashboard(User user) {
-        String roleName = user.getRoleName().toUpperCase();
-
-        if ("STUDENT".equals(roleName)) {
-            StudentDashboardFrame studentFrame = new StudentDashboardFrame(emergencyManager, identityService);
-            studentFrame.setVisible(true);
-            this.dispose();
+        if (username.isEmpty() || password.isEmpty()) {
+            setStatus("Username and password are required.", true);
+            ModernDialog.showWarning(this, "Missing Input", "Please enter both your username and password.");
             return;
         }
 
-        JFrame dashboard;
-        switch (roleName) {
-            case "ADMINISTRATOR":
-            case "ADMIN":
-            case "DISPATCHER":
-                try {
-                    dashboard = new DispatcherDashboardFrame();
-                } catch (Exception ex) {
-                    dashboard = createPlaceholderDashboard("DISPATCH CONTROL ROOM", user);
-                }
-                break;
-            case "STAFF":
-                dashboard = createPlaceholderDashboard("STAFF FACILITY EMERGENCY PORTAL", user);
-                break;
-            case "EXTERNAL_AGENCY":
-            case "AGENCY":
-                dashboard = createPlaceholderDashboard("EXTERNAL AGENCY ESCALATION MONITOR", user);
-                break;
-            default:
-                dashboard = createPlaceholderDashboard("GENERIC CAMPUS USER PORTAL", user);
-                break;
-        }
+        loginButton.setEnabled(false);
+        registerButton.setEnabled(false);
+        setStatus("Authenticating...", false);
 
-        dashboard.setVisible(true);
-        this.dispose();
+        ThreadPoolManager.getInstance().submit(() -> {
+            try {
+                User user = identityService.login(username, password);
+                SwingUtilities.invokeLater(() -> {
+                    AuthenticationContext.setCurrentUser(user);
+                    setStatus("Login successful!", false);
+                    openRoleDashboard(user);
+                    dispose();
+                });
+            } catch (Exception ex) {
+                LoggingService.warn("GUI Login failed for user: " + username + " - " + ex.getMessage());
+                SwingUtilities.invokeLater(() -> {
+                    loginButton.setEnabled(true);
+                    registerButton.setEnabled(true);
+                    setStatus("Authentication failed: " + ex.getMessage(), true);
+                    ModernDialog.showError(this, "Authentication Failed", ex.getMessage());
+                });
+            }
+        });
     }
 
-    private JFrame createPlaceholderDashboard(String title, User user) {
-        JFrame frame = new JFrame(title + " - Welcome " + user.getFullName());
-        frame.setSize(1024, 600);
-        frame.setLocationRelativeTo(null);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    public void openRegistration() {
+        RegistrationFrame regFrame = new RegistrationFrame(identityService, serviceRegistry);
+        regFrame.setVisible(true);
+    }
 
-        JPanel panel = new JPanel(new BorderLayout());
-        JLabel welcomeLabel = new JLabel("<html><h2 style='color:#4A90E2;'>" + title + "</h2>" +
-                "<p>Logged in as: <b>" + user.getFullName() + "</b> (" + user.getEmail() + ")</p>" +
-                "<p>Role: <b>" + user.getRoleName() + "</b></p></html>", SwingConstants.CENTER);
+    private void openRoleDashboard(User user) {
+        Role role = user.getRole();
+        if (role == Role.ADMIN) {
+            AdminConsoleFrame adminFrame = new AdminConsoleFrame(
+                    serviceRegistry.getTrackingService(),
+                    serviceRegistry.getDataAggregator(),
+                    serviceRegistry.getLogDAO(),
+                    serviceRegistry.getEmergencyManager(),
+                    serviceRegistry.getResourceDispatcher()
+            );
+            adminFrame.setVisible(true);
+        } else if (role == Role.DISPATCHER) {
+            TrackingDashboardFrame trackingFrame = new TrackingDashboardFrame(
+                    serviceRegistry.getTrackingService(),
+                    serviceRegistry.getResourceDispatcher(),
+                    serviceRegistry.getEmergencyManager(),
+                    serviceRegistry.getLocationDAO()
+            );
+            trackingFrame.setVisible(true);
+        } else {
+            UserDashboardFrame userFrame = new UserDashboardFrame(
+                    serviceRegistry.getEmergencyManager(),
+                    serviceRegistry.getTrackingService(),
+                    serviceRegistry.getReportDAO(),
+                    serviceRegistry.getLocationDAO()
+            );
+            userFrame.setVisible(true);
+        }
+    }
 
-        JButton logoutButton = new JButton("LOGOUT");
-        logoutButton.addActionListener(e -> {
-            identityService.logout();
-            new LoginFrame(identityService).setVisible(true);
-            frame.dispose();
-        });
-
-        panel.add(welcomeLabel, BorderLayout.CENTER);
-        panel.add(logoutButton, BorderLayout.SOUTH);
-        frame.add(panel);
-        return frame;
+    private void setStatus(String message, boolean isError) {
+        statusLabel.setText(message != null ? message : " ");
+        statusLabel.setForeground(isError ? UITheme.EMERGENCY_RED : UITheme.ACCENT_BLUE);
     }
 }

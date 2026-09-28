@@ -1,96 +1,64 @@
 package com.campus.emergency.model;
 
-/**
- * User entity representing system accounts.
- */
-public class User extends BaseEntity {
+import java.time.LocalDateTime;
+
+public class User {
+    private int id;
     private String username;
-    private String email;
     private String passwordHash;
     private String fullName;
+    private String email;
     private String phone;
-    private Long roleId;
     private Role role;
-    private boolean active = true;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     public User() {}
 
-    public User(Long id, String username, String email, String passwordHash, String fullName, String phone, Long roleId, boolean active) {
-        super(id);
+    public User(int id, String username, String passwordHash, String fullName, String email, String phone, Role role) {
+        this.id = id;
         this.username = username;
-        this.email = email;
         this.passwordHash = passwordHash;
         this.fullName = fullName;
-        this.phone = phone;
-        this.roleId = roleId;
-        this.active = active;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
         this.email = email;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
         this.phone = phone;
-    }
-
-    public Long getRoleId() {
-        return roleId;
-    }
-
-    public void setRoleId(Long roleId) {
-        this.roleId = roleId;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
         this.role = role;
     }
 
-    public String getRoleName() {
-        return role != null ? role.getRoleName() : "UNKNOWN";
-    }
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
 
-    public boolean isActive() {
-        return active;
-    }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
-    public void setActive(boolean active) {
-        this.active = active;
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", username='" + username + '\'' +
+                ", fullName='" + fullName + '\'' +
+                ", role=" + role +
+                '}';
     }
 }

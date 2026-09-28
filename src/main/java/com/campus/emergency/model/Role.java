@@ -1,38 +1,17 @@
 package com.campus.emergency.model;
 
-/**
- * Role entity representing user access levels.
- */
-public class Role extends BaseEntity {
-    private String roleName;
-    private String description;
+public enum Role {
+    STUDENT,
+    STAFF,
+    ADMIN,
+    DISPATCHER;
 
-    public Role() {}
-
-    public Role(Long id, String roleName, String description) {
-        super(id);
-        this.roleName = roleName;
-        this.description = description;
-    }
-
-    public String getRoleName() {
-        return roleName;
-    }
-
-    public void setRoleName(String roleName) {
-        this.roleName = roleName;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    @Override
-    public String toString() {
-        return roleName;
+    public static Role fromString(String roleStr) {
+        if (roleStr == null) return STUDENT;
+        try {
+            return Role.valueOf(roleStr.toUpperCase().trim());
+        } catch (IllegalArgumentException e) {
+            return STUDENT;
+        }
     }
 }

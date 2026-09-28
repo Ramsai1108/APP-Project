@@ -1,18 +1,25 @@
-# Maven build output
+# Maven target directory
 target/
-
-# IDE files
-.idea/
-*.iml
-.vscode/
 *.class
 
-# OS files
-.DS_Store
-Thumbs.db
+# Environment and Secret files
+.env
+*.env
+application-local.properties
+local-credentials.properties
+*.pem
+*.key
+
+# IDE metadata
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
 
 # Logs
 *.log
 
-# Environment
-.env
+# Maven Shade Plugin
+dependency-reduced-pom.xml

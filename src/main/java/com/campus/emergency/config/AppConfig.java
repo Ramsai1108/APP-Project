@@ -1,11 +1,21 @@
 package com.campus.emergency.config;
 
-/**
- * Application constants and global configuration properties.
- */
 public class AppConfig {
-    public static final String APP_TITLE = "Smart Campus Emergency & Resource Co-ordination System";
-    public static final String APP_VERSION = "1.0.0";
-    public static final int AUTO_LOGOUT_MINUTES = 15;
-    public static final int AUTO_ESCALATION_MINUTES = 3;
+    private static final AppConfig INSTANCE = new AppConfig();
+
+    private final String appName = "Campus Emergency Response System";
+    private final String appVersion = "1.0.0";
+    private final DatabaseConfig databaseConfig;
+
+    private AppConfig() {
+        this.databaseConfig = new DatabaseConfig();
+    }
+
+    public static AppConfig getInstance() {
+        return INSTANCE;
+    }
+
+    public String getAppName() { return appName; }
+    public String getAppVersion() { return appVersion; }
+    public DatabaseConfig getDatabaseConfig() { return databaseConfig; }
 }
