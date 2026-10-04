@@ -8,7 +8,8 @@ public class VectorIcon implements Icon {
 
     public enum Type {
         SHIELD, REFRESH, LOGOUT, ALERT, CHECK, CLOCK, USER, SEARCH, FILTER, BELL, CHART, LIST,
-        FIRE, MEDICAL, HAZARD, LOCK, BUILDING, HELP, RESET, INFO, EYE, SERVER, ACTIVITY, ARROW_RIGHT
+        FIRE, MEDICAL, HAZARD, LOCK, BUILDING, HELP, RESET, INFO, EYE, SERVER, ACTIVITY, ARROW_RIGHT,
+        LOCATION_PIN
     }
 
     private final Type type;
@@ -256,6 +257,19 @@ public class VectorIcon implements Icon {
                 g2.drawLine(3, 8, 13, 8);
                 g2.drawLine(9, 4, 13, 8);
                 g2.drawLine(9, 12, 13, 8);
+                break;
+
+            case LOCATION_PIN:
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                Path2D pin = new Path2D.Double();
+                pin.moveTo(8, 1.5);
+                pin.curveTo(4.5, 1.5, 2.5, 3.5, 2.5, 7.0);
+                pin.curveTo(2.5, 11.0, 8.0, 15.0, 8.0, 15.0);
+                pin.curveTo(8.0, 15.0, 13.5, 11.0, 13.5, 7.0);
+                pin.curveTo(13.5, 3.5, 11.5, 1.5, 8.0, 1.5);
+                pin.closePath();
+                g2.draw(pin);
+                g2.drawOval(6, 5, 4, 4);
                 break;
         }
 

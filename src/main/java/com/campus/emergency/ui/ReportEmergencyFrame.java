@@ -143,27 +143,35 @@ public class ReportEmergencyFrame extends JFrame {
         formContent.add(categoryGrid);
         formContent.add(Box.createVerticalStrut(12));
 
-        // 2. Location Selection
-        JPanel locHeaderRow = new JPanel(new BorderLayout());
-        locHeaderRow.setOpaque(false);
-        locHeaderRow.setAlignmentX(Component.LEFT_ALIGNMENT);
-
+        // 2. Emergency Location
         JLabel locSectionLabel = new JLabel("2. Emergency Location *");
         locSectionLabel.setFont(UITheme.FONT_BODY_BOLD);
         locSectionLabel.setForeground(UITheme.TEXT_PRIMARY);
-        locHeaderRow.add(locSectionLabel, BorderLayout.WEST);
-
-        // Auto-Detect Location Button
-        autoDetectBtn = new ModernButton("Use My Current Location", VectorIcon.Type.SEARCH, ModernButton.ButtonStyle.SECONDARY);
-        autoDetectBtn.setPreferredSize(new Dimension(210, 32));
-        autoDetectBtn.setFont(UITheme.FONT_SMALL);
-        autoDetectBtn.addActionListener(e -> autoDetectCurrentLocation());
-        locHeaderRow.add(autoDetectBtn, BorderLayout.EAST);
-
-        formContent.add(locHeaderRow);
+        locSectionLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        formContent.add(locSectionLabel);
         formContent.add(Box.createVerticalStrut(6));
 
-        // Detected Location Card (Hidden initially, appears upon detection)
+        // Auto-Detect Location Button (Horizontal action row: ~260x44 px)
+        autoDetectBtn = new ModernButton("Use My Current Location", VectorIcon.Type.LOCATION_PIN, ModernButton.ButtonStyle.SECONDARY);
+        autoDetectBtn.setPreferredSize(new Dimension(260, 44));
+        autoDetectBtn.setMaximumSize(new Dimension(270, 44));
+        autoDetectBtn.setFont(UITheme.FONT_BODY_BOLD);
+        autoDetectBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        autoDetectBtn.addActionListener(e -> autoDetectCurrentLocation());
+        formContent.add(autoDetectBtn);
+        formContent.add(Box.createVerticalStrut(6));
+
+        // Location status banner (for loading and warning/error states)
+        locationStatusBanner = new JLabel();
+        locationStatusBanner.setFont(UITheme.FONT_SMALL);
+        locationStatusBanner.setOpaque(true);
+        locationStatusBanner.setAlignmentX(Component.LEFT_ALIGNMENT);
+        locationStatusBanner.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
+        locationStatusBanner.setVisible(false);
+        formContent.add(locationStatusBanner);
+        formContent.add(Box.createVerticalStrut(6));
+
+        // Detected Location Card (Success state)
         detectedLocationCard = new JPanel(new BorderLayout(0, 6));
         detectedLocationCard.setBackground(new Color(240, 249, 255));
         detectedLocationCard.setBorder(BorderFactory.createCompoundBorder(
@@ -171,14 +179,17 @@ public class ReportEmergencyFrame extends JFrame {
                 new EmptyBorder(8, 12, 8, 12)
         ));
         detectedLocationCard.setAlignmentX(Component.LEFT_ALIGNMENT);
+        detectedLocationCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 125));
         detectedLocationCard.setVisible(false);
 
-        JPanel detectedHead = new JPanel(new BorderLayout());
+        JPanel detectedHead = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         detectedHead.setOpaque(false);
-        JLabel detectedBadge = new JLabel("LOCATION DETECTED (OPENSTREETMAP)");
-        detectedBadge.setFont(UITheme.FONT_BADGE);
+        JLabel pinIconLabel = new JLabel(new VectorIcon(VectorIcon.Type.LOCATION_PIN, 16, UITheme.ACCENT_BLUE));
+        JLabel detectedBadge = new JLabel("Current Location (OpenStreetMap)");
+        detectedBadge.setFont(UITheme.FONT_BODY_BOLD);
         detectedBadge.setForeground(UITheme.ACCENT_BLUE);
-        detectedHead.add(detectedBadge, BorderLayout.WEST);
+        detectedHead.add(pinIconLabel);
+        detectedHead.add(detectedBadge);
         detectedLocationCard.add(detectedHead, BorderLayout.NORTH);
 
         JPanel detectedBody = new JPanel();
@@ -208,13 +219,13 @@ public class ReportEmergencyFrame extends JFrame {
         detectedActions.setOpaque(false);
 
         ModernButton useThisLocBtn = new ModernButton("Use This Location", VectorIcon.Type.CHECK, ModernButton.ButtonStyle.PRIMARY);
-        useThisLocBtn.setPreferredSize(new Dimension(150, 28));
+        useThisLocBtn.setPreferredSize(new Dimension(150, 30));
         useThisLocBtn.setFont(UITheme.FONT_SMALL);
         useThisLocBtn.addActionListener(e -> applyDetectedLocation());
         detectedActions.add(useThisLocBtn);
 
         ModernButton openOsmBtn = new ModernButton("Open in OpenStreetMap", VectorIcon.Type.EYE, ModernButton.ButtonStyle.SECONDARY);
-        openOsmBtn.setPreferredSize(new Dimension(170, 28));
+        openOsmBtn.setPreferredSize(new Dimension(175, 30));
         openOsmBtn.setFont(UITheme.FONT_SMALL);
         openOsmBtn.addActionListener(e -> {
             if (lastLocationResult != null && lastLocationResult.isSuccess()) {
@@ -227,30 +238,21 @@ public class ReportEmergencyFrame extends JFrame {
         formContent.add(detectedLocationCard);
         formContent.add(Box.createVerticalStrut(6));
 
-        // Location status banner (for loading and error messages)
-        locationStatusBanner = new JLabel();
-        locationStatusBanner.setFont(UITheme.FONT_META);
-        locationStatusBanner.setForeground(UITheme.TEXT_MUTED);
-        locationStatusBanner.setAlignmentX(Component.LEFT_ALIGNMENT);
-        locationStatusBanner.setVisible(false);
-        formContent.add(locationStatusBanner);
-        formContent.add(Box.createVerticalStrut(4));
-
         // Manual Campus Location Dropdown
-        JLabel manualLocLabel = new JLabel("Campus Location (Manual Selection):");
+        JLabel manualLocLabel = new JLabel("Campus Location:");
         manualLocLabel.setFont(UITheme.FONT_META);
         manualLocLabel.setForeground(UITheme.TEXT_SECONDARY);
         manualLocLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         formContent.add(manualLocLabel);
-        formContent.add(Box.createVerticalStrut(2));
+        formContent.add(Box.createVerticalStrut(4));
 
         locationComboBox = new JComboBox<>();
         locationComboBox.setFont(UITheme.FONT_BODY);
         locationComboBox.setBackground(Color.WHITE);
         locationComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        locationComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        locationComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 38));
         formContent.add(locationComboBox);
-        formContent.add(Box.createVerticalStrut(12));
+        formContent.add(Box.createVerticalStrut(14));
 
         // 3. People Affected & Optional Media Row
         JPanel twoColRow = new JPanel(new GridLayout(1, 2, 14, 0));
@@ -329,6 +331,7 @@ public class ReportEmergencyFrame extends JFrame {
         noticePanel.add(noticeIcon);
         noticePanel.add(noticeText);
         formContent.add(noticePanel);
+        formContent.add(Box.createVerticalGlue());
 
         card.add(formContent, BorderLayout.CENTER);
         mainPanel.add(card, BorderLayout.CENTER);
@@ -355,11 +358,20 @@ public class ReportEmergencyFrame extends JFrame {
     }
 
     private void autoDetectCurrentLocation() {
-        autoDetectBtn.setText("Detecting location...");
+        autoDetectBtn.setText("Detecting Location...");
+        autoDetectBtn.setButtonIcon(new VectorIcon(VectorIcon.Type.REFRESH, 16, UITheme.TEXT_SECONDARY));
         autoDetectBtn.setEnabled(false);
 
-        locationStatusBanner.setText("Contacting OpenStreetMap Nominatim reverse geocoder...");
+        detectedLocationCard.setVisible(false);
+
+        locationStatusBanner.setText(" Detecting your location...");
+        locationStatusBanner.setIcon(new VectorIcon(VectorIcon.Type.REFRESH, 16, UITheme.ACCENT_BLUE));
+        locationStatusBanner.setBackground(UITheme.INFO_CYAN_BG);
         locationStatusBanner.setForeground(UITheme.ACCENT_BLUE);
+        locationStatusBanner.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UITheme.INFO_CYAN_BORDER, 1),
+                new EmptyBorder(6, 10, 6, 10)
+        ));
         locationStatusBanner.setVisible(true);
 
         ThreadPoolManager.getInstance().submit(() -> {
@@ -367,17 +379,19 @@ public class ReportEmergencyFrame extends JFrame {
 
             SwingUtilities.invokeLater(() -> {
                 autoDetectBtn.setText("Use My Current Location");
+                autoDetectBtn.setButtonIcon(new VectorIcon(VectorIcon.Type.LOCATION_PIN, 16, UITheme.TEXT_PRIMARY));
                 autoDetectBtn.setEnabled(true);
                 lastLocationResult = result;
 
                 if (result != null && result.isSuccess()) {
+                    locationStatusBanner.setVisible(false);
                     String displayName = result.getDisplayName();
                     double lat = result.getLatitude();
                     double lon = result.getLongitude();
                     Double acc = result.getAccuracy();
 
                     detectedAddressLabel.setText(displayName != null ? displayName : "Location Detected");
-                    detectedCoordsLabel.setText(String.format(Locale.US, "Lat: %.6f | Lon: %.6f (±%.0fm)",
+                    detectedCoordsLabel.setText(String.format(Locale.US, "Lat: %.6f | Lon: %.6f  •  Accuracy: ±%.0fm",
                             lat, lon, acc != null ? acc : 15.0));
 
                     // Find nearest campus location from database
@@ -393,16 +407,21 @@ public class ReportEmergencyFrame extends JFrame {
                     }
 
                     detectedLocationCard.setVisible(true);
-                    locationStatusBanner.setText("Location successfully detected via OpenStreetMap.");
-                    locationStatusBanner.setForeground(UITheme.SUCCESS_GREEN);
 
                     // Auto-select nearest location in dropdown if matched
                     applyDetectedLocation();
 
                 } else {
                     detectedLocationCard.setVisible(false);
-                    locationStatusBanner.setText("Unable to detect your current location. You can select your campus location manually.");
-                    locationStatusBanner.setForeground(UITheme.WARNING_ORANGE);
+                    locationStatusBanner.setText("Location unavailable. Select your campus location manually.");
+                    locationStatusBanner.setIcon(new VectorIcon(VectorIcon.Type.ALERT, 16, UITheme.WARNING_ORANGE));
+                    locationStatusBanner.setBackground(new Color(254, 243, 199));
+                    locationStatusBanner.setForeground(new Color(180, 83, 9));
+                    locationStatusBanner.setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createLineBorder(new Color(251, 191, 36), 1),
+                            new EmptyBorder(6, 10, 6, 10)
+                    ));
+                    locationStatusBanner.setVisible(true);
                 }
             });
         });
