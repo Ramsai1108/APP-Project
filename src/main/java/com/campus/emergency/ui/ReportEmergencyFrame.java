@@ -19,8 +19,10 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class ReportEmergencyFrame extends JFrame {
     private final EmergencyManager emergencyManager;
@@ -32,14 +34,22 @@ public class ReportEmergencyFrame extends JFrame {
     private final List<CategoryCard> categoryCards = new ArrayList<>();
     private JTextArea descriptionArea;
     private JComboBox<LocationItem> locationComboBox;
-    private JLabel autoDetectBtn;
-    private JLabel detectedLocationStatusLabel;
+    private ModernButton autoDetectBtn;
+    private JPanel detectedLocationCard;
+    private JLabel detectedAddressLabel;
+    private JLabel detectedCoordsLabel;
+    private JLabel nearestCampusLocationLabel;
+    private JLabel locationStatusBanner;
     private JSpinner peopleAffectedSpinner;
     private JPanel mediaContainerPanel;
     private File attachedMediaFile = null;
     private BufferedImage originalImage = null;
     private ModernButton submitButton;
     private ModernButton cancelButton;
+
+    private final List<Location> cachedCampusLocations = new ArrayList<>();
+    private Location lastDetectedNearestLocation = null;
+    private LocationResult lastLocationResult = null;
 
     public static class LocationItem {
         private final Location location;
@@ -81,7 +91,7 @@ public class ReportEmergencyFrame extends JFrame {
     private void initUI() {
         setTitle("Campus Emergency Response - Report Emergency");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(700, 830);
+        setSize(720, 860);
         setLocationRelativeTo(null);
         setResizable(false);
 
@@ -143,40 +153,96 @@ public class ReportEmergencyFrame extends JFrame {
         locSectionLabel.setForeground(UITheme.TEXT_PRIMARY);
         locHeaderRow.add(locSectionLabel, BorderLayout.WEST);
 
-        // Quick action buttons panel on header right
-        JPanel locActionsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        locActionsPanel.setOpaque(false);
+        // Auto-Detect Location Button
+        autoDetectBtn = new ModernButton("Use My Current Location", VectorIcon.Type.SEARCH, ModernButton.ButtonStyle.SECONDARY);
+        autoDetectBtn.setPreferredSize(new Dimension(210, 32));
+        autoDetectBtn.setFont(UITheme.FONT_SMALL);
+        autoDetectBtn.addActionListener(e -> autoDetectCurrentLocation());
+        locHeaderRow.add(autoDetectBtn, BorderLayout.EAST);
 
-        autoDetectBtn = new JLabel("📍 Auto-Detect Location");
-        autoDetectBtn.setFont(UITheme.FONT_META);
-        autoDetectBtn.setForeground(UITheme.ACCENT_BLUE);
-        autoDetectBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        autoDetectBtn.setToolTipText("Automatically detect your device coordinates via OpenStreetMap");
-        autoDetectBtn.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                autoDetectCurrentLocation();
-            }
-        });
-        locActionsPanel.add(autoDetectBtn);
-
-        JLabel quickLocBtn = new JLabel("Campus Main");
-        quickLocBtn.setFont(UITheme.FONT_META);
-        quickLocBtn.setForeground(UITheme.TEXT_MUTED);
-        quickLocBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        quickLocBtn.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (locationComboBox.getItemCount() > 1) {
-                    locationComboBox.setSelectedIndex(1);
-                }
-            }
-        });
-        locActionsPanel.add(quickLocBtn);
-
-        locHeaderRow.add(locActionsPanel, BorderLayout.EAST);
         formContent.add(locHeaderRow);
+        formContent.add(Box.createVerticalStrut(6));
+
+        // Detected Location Card (Hidden initially, appears upon detection)
+        detectedLocationCard = new JPanel(new BorderLayout(0, 6));
+        detectedLocationCard.setBackground(new Color(240, 249, 255));
+        detectedLocationCard.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UITheme.INFO_CYAN_BORDER, 1),
+                new EmptyBorder(8, 12, 8, 12)
+        ));
+        detectedLocationCard.setAlignmentX(Component.LEFT_ALIGNMENT);
+        detectedLocationCard.setVisible(false);
+
+        JPanel detectedHead = new JPanel(new BorderLayout());
+        detectedHead.setOpaque(false);
+        JLabel detectedBadge = new JLabel("LOCATION DETECTED (OPENSTREETMAP)");
+        detectedBadge.setFont(UITheme.FONT_BADGE);
+        detectedBadge.setForeground(UITheme.ACCENT_BLUE);
+        detectedHead.add(detectedBadge, BorderLayout.WEST);
+        detectedLocationCard.add(detectedHead, BorderLayout.NORTH);
+
+        JPanel detectedBody = new JPanel();
+        detectedBody.setLayout(new BoxLayout(detectedBody, BoxLayout.Y_AXIS));
+        detectedBody.setOpaque(false);
+
+        detectedAddressLabel = new JLabel("Detected Address");
+        detectedAddressLabel.setFont(UITheme.FONT_BODY_BOLD);
+        detectedAddressLabel.setForeground(UITheme.TEXT_PRIMARY);
+        detectedBody.add(detectedAddressLabel);
+        detectedBody.add(Box.createVerticalStrut(2));
+
+        detectedCoordsLabel = new JLabel("Lat: -- | Lon: --");
+        detectedCoordsLabel.setFont(UITheme.FONT_META);
+        detectedCoordsLabel.setForeground(UITheme.TEXT_SECONDARY);
+        detectedBody.add(detectedCoordsLabel);
+        detectedBody.add(Box.createVerticalStrut(2));
+
+        nearestCampusLocationLabel = new JLabel("Nearest campus location: --");
+        nearestCampusLocationLabel.setFont(UITheme.FONT_SMALL);
+        nearestCampusLocationLabel.setForeground(UITheme.SUCCESS_GREEN);
+        detectedBody.add(nearestCampusLocationLabel);
+
+        detectedLocationCard.add(detectedBody, BorderLayout.CENTER);
+
+        JPanel detectedActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        detectedActions.setOpaque(false);
+
+        ModernButton useThisLocBtn = new ModernButton("Use This Location", VectorIcon.Type.CHECK, ModernButton.ButtonStyle.PRIMARY);
+        useThisLocBtn.setPreferredSize(new Dimension(150, 28));
+        useThisLocBtn.setFont(UITheme.FONT_SMALL);
+        useThisLocBtn.addActionListener(e -> applyDetectedLocation());
+        detectedActions.add(useThisLocBtn);
+
+        ModernButton openOsmBtn = new ModernButton("Open in OpenStreetMap", VectorIcon.Type.EYE, ModernButton.ButtonStyle.SECONDARY);
+        openOsmBtn.setPreferredSize(new Dimension(170, 28));
+        openOsmBtn.setFont(UITheme.FONT_SMALL);
+        openOsmBtn.addActionListener(e -> {
+            if (lastLocationResult != null && lastLocationResult.isSuccess()) {
+                openOpenStreetMapUrl(lastLocationResult.getLatitude(), lastLocationResult.getLongitude());
+            }
+        });
+        detectedActions.add(openOsmBtn);
+
+        detectedLocationCard.add(detectedActions, BorderLayout.SOUTH);
+        formContent.add(detectedLocationCard);
+        formContent.add(Box.createVerticalStrut(6));
+
+        // Location status banner (for loading and error messages)
+        locationStatusBanner = new JLabel();
+        locationStatusBanner.setFont(UITheme.FONT_META);
+        locationStatusBanner.setForeground(UITheme.TEXT_MUTED);
+        locationStatusBanner.setAlignmentX(Component.LEFT_ALIGNMENT);
+        locationStatusBanner.setVisible(false);
+        formContent.add(locationStatusBanner);
         formContent.add(Box.createVerticalStrut(4));
+
+        // Manual Campus Location Dropdown
+        JLabel manualLocLabel = new JLabel("Campus Location (Manual Selection):");
+        manualLocLabel.setFont(UITheme.FONT_META);
+        manualLocLabel.setForeground(UITheme.TEXT_SECONDARY);
+        manualLocLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        formContent.add(manualLocLabel);
+        formContent.add(Box.createVerticalStrut(2));
 
         locationComboBox = new JComboBox<>();
         locationComboBox.setFont(UITheme.FONT_BODY);
@@ -184,15 +250,7 @@ public class ReportEmergencyFrame extends JFrame {
         locationComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         locationComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         formContent.add(locationComboBox);
-
-        detectedLocationStatusLabel = new JLabel();
-        detectedLocationStatusLabel.setFont(UITheme.FONT_META);
-        detectedLocationStatusLabel.setForeground(UITheme.SUCCESS_GREEN);
-        detectedLocationStatusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        detectedLocationStatusLabel.setVisible(false);
-        formContent.add(Box.createVerticalStrut(2));
-        formContent.add(detectedLocationStatusLabel);
-        formContent.add(Box.createVerticalStrut(10));
+        formContent.add(Box.createVerticalStrut(12));
 
         // 3. People Affected & Optional Media Row
         JPanel twoColRow = new JPanel(new GridLayout(1, 2, 14, 0));
@@ -298,14 +356,19 @@ public class ReportEmergencyFrame extends JFrame {
 
     private void autoDetectCurrentLocation() {
         autoDetectBtn.setText("Detecting location...");
-        detectedLocationStatusLabel.setText("Contacting OpenStreetMap Nominatim reverse geocoder...");
-        detectedLocationStatusLabel.setForeground(UITheme.ACCENT_BLUE);
-        detectedLocationStatusLabel.setVisible(true);
+        autoDetectBtn.setEnabled(false);
+
+        locationStatusBanner.setText("Contacting OpenStreetMap Nominatim reverse geocoder...");
+        locationStatusBanner.setForeground(UITheme.ACCENT_BLUE);
+        locationStatusBanner.setVisible(true);
 
         ThreadPoolManager.getInstance().submit(() -> {
             LocationResult result = locationService.detectCurrentLocation();
+
             SwingUtilities.invokeLater(() -> {
-                autoDetectBtn.setText("📍 Auto-Detect Location");
+                autoDetectBtn.setText("Use My Current Location");
+                autoDetectBtn.setEnabled(true);
+                lastLocationResult = result;
 
                 if (result != null && result.isSuccess()) {
                     String displayName = result.getDisplayName();
@@ -313,31 +376,73 @@ public class ReportEmergencyFrame extends JFrame {
                     double lon = result.getLongitude();
                     Double acc = result.getAccuracy();
 
-                    Location detectedLocation = new Location(
-                            1, // Default fallback ID for foreign-key consistency
-                            displayName != null ? displayName : "Auto-Detected GPS Location",
-                            "Ground",
-                            "GPS",
-                            lat,
-                            lon,
-                            "Auto-detected via OpenStreetMap Nominatim"
-                    );
+                    detectedAddressLabel.setText(displayName != null ? displayName : "Location Detected");
+                    detectedCoordsLabel.setText(String.format(Locale.US, "Lat: %.6f | Lon: %.6f (±%.0fm)",
+                            lat, lon, acc != null ? acc : 15.0));
 
-                    LocationItem item = new LocationItem(detectedLocation);
-                    locationComboBox.addItem(item);
-                    locationComboBox.setSelectedItem(item);
+                    // Find nearest campus location from database
+                    lastDetectedNearestLocation = locationService.findNearestCampusLocation(lat, lon, cachedCampusLocations);
+                    if (lastDetectedNearestLocation != null) {
+                        nearestCampusLocationLabel.setText("Nearest campus location: "
+                                + lastDetectedNearestLocation.getBuildingName()
+                                + " (Floor " + lastDetectedNearestLocation.getFloor()
+                                + ", Room " + lastDetectedNearestLocation.getRoomNumber() + ")");
+                        nearestCampusLocationLabel.setVisible(true);
+                    } else {
+                        nearestCampusLocationLabel.setVisible(false);
+                    }
 
-                    detectedLocationStatusLabel.setText(String.format("📍 Detected: %s (%.4f, %.4f ±%.0fm)",
-                            displayName, lat, lon, acc != null ? acc : 15.0));
-                    detectedLocationStatusLabel.setForeground(UITheme.SUCCESS_GREEN);
+                    detectedLocationCard.setVisible(true);
+                    locationStatusBanner.setText("Location successfully detected via OpenStreetMap.");
+                    locationStatusBanner.setForeground(UITheme.SUCCESS_GREEN);
+
+                    // Auto-select nearest location in dropdown if matched
+                    applyDetectedLocation();
+
                 } else {
-                    String err = (result != null && result.getErrorMessage() != null)
-                            ? result.getErrorMessage() : "Unable to acquire coordinates";
-                    detectedLocationStatusLabel.setText("GPS Detection: " + err + " (select from list)");
-                    detectedLocationStatusLabel.setForeground(UITheme.WARNING_ORANGE);
+                    detectedLocationCard.setVisible(false);
+                    locationStatusBanner.setText("Unable to detect your current location. You can select your campus location manually.");
+                    locationStatusBanner.setForeground(UITheme.WARNING_ORANGE);
                 }
             });
         });
+    }
+
+    private void applyDetectedLocation() {
+        if (lastDetectedNearestLocation != null) {
+            for (int i = 0; i < locationComboBox.getItemCount(); i++) {
+                LocationItem item = locationComboBox.getItemAt(i);
+                if (item != null && item.getLocation() != null && item.getLocation().getId() == lastDetectedNearestLocation.getId()) {
+                    locationComboBox.setSelectedIndex(i);
+                    break;
+                }
+            }
+        } else if (lastLocationResult != null && lastLocationResult.isSuccess()) {
+            Location dynamicLoc = new Location(
+                    1,
+                    lastLocationResult.getDisplayName(),
+                    "Ground",
+                    "GPS",
+                    lastLocationResult.getLatitude(),
+                    lastLocationResult.getLongitude(),
+                    "Auto-detected via OpenStreetMap Nominatim"
+            );
+            LocationItem item = new LocationItem(dynamicLoc);
+            locationComboBox.addItem(item);
+            locationComboBox.setSelectedItem(item);
+        }
+    }
+
+    private void openOpenStreetMapUrl(double lat, double lon) {
+        try {
+            if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                String url = String.format(Locale.US, "https://www.openstreetmap.org/?mlat=%.6f&mlon=%.6f#map=17/%.6f/%.6f",
+                        lat, lon, lat, lon);
+                Desktop.getDesktop().browse(new URI(url));
+            }
+        } catch (Exception e) {
+            LoggingService.warn("Failed to open OpenStreetMap in default browser: " + e.getMessage());
+        }
     }
 
     private void renderDefaultMediaAttachUI() {
@@ -627,6 +732,9 @@ public class ReportEmergencyFrame extends JFrame {
             try {
                 List<Location> locations = locationDAO.findAll();
                 SwingUtilities.invokeLater(() -> {
+                    cachedCampusLocations.clear();
+                    cachedCampusLocations.addAll(locations);
+
                     locationComboBox.removeAllItems();
                     locationComboBox.addItem(new LocationItem(null));
                     for (Location loc : locations) {
