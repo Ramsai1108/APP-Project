@@ -84,10 +84,10 @@ public class RegistrationFrame extends JFrame {
         card.add(phoneField);
 
         card.add(createFieldLabel("Account Role"));
-        roleComboBox = new JComboBox<>(Role.values());
-        roleComboBox.setFont(UITheme.FONT_BODY);
-        roleComboBox.setBackground(Color.WHITE);
-        card.add(roleComboBox);
+        JLabel fixedRoleLabel = new JLabel("Campus User (USER)");
+        fixedRoleLabel.setFont(UITheme.FONT_BODY_BOLD);
+        fixedRoleLabel.setForeground(UITheme.ACCENT_BLUE);
+        card.add(fixedRoleLabel);
 
         card.add(createFieldLabel("Password * (min 6 chars)"));
         passwordField = new ModernPasswordField("Enter secure password");
@@ -131,7 +131,7 @@ public class RegistrationFrame extends JFrame {
         String username = usernameField.getText() != null ? usernameField.getText().trim() : "";
         String email = emailField.getText() != null ? emailField.getText().trim() : "";
         String phone = phoneField.getText() != null ? phoneField.getText().trim() : "";
-        Role role = (Role) roleComboBox.getSelectedItem();
+        Role role = Role.USER;
 
         char[] passChars = passwordField.getPassword();
         char[] confirmChars = confirmPasswordField.getPassword();

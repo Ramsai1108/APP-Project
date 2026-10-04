@@ -251,8 +251,7 @@ public class LoginFrame extends JFrame {
     }
 
     private void openRoleDashboard(User user) {
-        Role role = user.getRole();
-        if (role == Role.ADMIN) {
+        if (user != null && user.getRole().isAdmin()) {
             AdminConsoleFrame adminFrame = new AdminConsoleFrame(
                     serviceRegistry.getTrackingService(),
                     serviceRegistry.getDataAggregator(),
@@ -261,14 +260,6 @@ public class LoginFrame extends JFrame {
                     serviceRegistry.getResourceDispatcher()
             );
             adminFrame.setVisible(true);
-        } else if (role == Role.DISPATCHER) {
-            TrackingDashboardFrame trackingFrame = new TrackingDashboardFrame(
-                    serviceRegistry.getTrackingService(),
-                    serviceRegistry.getResourceDispatcher(),
-                    serviceRegistry.getEmergencyManager(),
-                    serviceRegistry.getLocationDAO()
-            );
-            trackingFrame.setVisible(true);
         } else {
             UserDashboardFrame userFrame = new UserDashboardFrame(
                     serviceRegistry.getEmergencyManager(),

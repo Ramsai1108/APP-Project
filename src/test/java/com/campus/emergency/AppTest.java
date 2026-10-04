@@ -45,7 +45,7 @@ public class AppTest {
         assertEquals(Role.ADMIN, Role.fromString("ADMIN"));
         assertEquals(Role.DISPATCHER, Role.fromString("dispatcher"));
         assertEquals(Role.STAFF, Role.fromString("STAFF"));
-        assertEquals(Role.STUDENT, Role.fromString("UNKNOWN"));
+        assertEquals(Role.USER, Role.fromString("UNKNOWN"));
     }
 
     @Test
