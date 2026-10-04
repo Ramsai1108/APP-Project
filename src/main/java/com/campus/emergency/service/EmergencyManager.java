@@ -40,6 +40,12 @@ public class EmergencyManager {
     }
 
     public EmergencyReport createReport(User reporter, String category, String description, int locationId, int peopleAffected, String photoPath, String videoPath) throws EmergencyProcessingException {
+        return createReport(reporter, category, description, locationId, peopleAffected, photoPath, videoPath, null, null, null, null, "CAMPUS_MANUAL", locationId > 0 ? locationId : null);
+    }
+
+    public EmergencyReport createReport(User reporter, String category, String description, int locationId, int peopleAffected,
+                                        String photoPath, String videoPath, Double latitude, Double longitude,
+                                        Double accuracy, java.time.LocalDateTime timestamp, String source, Integer campusLocationId) throws EmergencyProcessingException {
         if (reporter == null || reporter.getId() <= 0) {
             throw new EmergencyProcessingException("Unauthenticated report submission rejected");
         }
@@ -49,15 +55,33 @@ public class EmergencyManager {
         if (!ValidationUtils.isNotNullOrEmpty(description) || description.trim().length() < 5) {
             throw new EmergencyProcessingException("Detailed description is required");
         }
-        if (locationId <= 0) {
-            throw new EmergencyProcessingException("Valid emergency location is required");
+
+        // Validate Coordinates if provided
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null || latitude < -90.0 || latitude > 90.0 || longitude < -180.0 || longitude > 180.0) {
+                throw new EmergencyProcessingException("Invalid coordinates: Latitude must be between -90 and 90, Longitude between -180 and 180");
+            }
+        }
+
+        int targetLocationId = (locationId > 0) ? locationId : (campusLocationId != null && campusLocationId > 0 ? campusLocationId : 0);
+        if (targetLocationId <= 0 && (latitude == null || longitude == null)) {
+            throw new EmergencyProcessingException("Valid emergency location or campus location is required");
+        }
+        if (targetLocationId <= 0) {
+            targetLocationId = 1;
         }
 
         String priority = priorityEngine.calculatePriority(category, description, peopleAffected);
 
-        EmergencyReport report = new EmergencyReport(0, reporter.getId(), category.trim(), description.trim(), locationId, "SUBMITTED");
+        EmergencyReport report = new EmergencyReport(0, reporter.getId(), category.trim(), description.trim(), targetLocationId, "SUBMITTED");
         report.setPhotoPath(photoPath);
         report.setVideoPath(videoPath);
+        report.setLatitude(latitude);
+        report.setLongitude(longitude);
+        report.setLocationAccuracy(accuracy);
+        report.setLocationTimestamp(timestamp != null ? timestamp : java.time.LocalDateTime.now());
+        report.setLocationSource(source != null ? source : ("GPS".equalsIgnoreCase(source) ? "GPS" : "CAMPUS_MANUAL"));
+        report.setCampusLocationId(campusLocationId);
 
         EmergencyReport createdReport;
 
@@ -86,7 +110,7 @@ public class EmergencyManager {
             }
         }
 
-        LoggingService.info(String.format("Emergency report #%d created with priority: %s for location #%d", createdReport.getId(), priority, locationId));
+        LoggingService.info(String.format("Emergency report #%d created with priority: %s for location #%d (Source: %s)", createdReport.getId(), priority, targetLocationId, report.getLocationSource()));
         if (logDAO != null) {
             logDAO.log("EMERGENCY_REPORT_CREATED", reporter.getId(), String.format("Report #%d, Category: %s, Priority: %s", createdReport.getId(), category, priority));
         }

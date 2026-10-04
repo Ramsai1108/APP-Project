@@ -780,12 +780,15 @@ public class ReportEmergencyFrame extends JFrame {
         String description = descriptionArea.getText() != null ? descriptionArea.getText().trim() : "";
         LocationItem selectedLocationItem = (LocationItem) locationComboBox.getSelectedItem();
 
-        if (selectedLocationItem == null || selectedLocationItem.getLocation() == null) {
-            ModernDialog.showWarning(this, "Missing Location", "Please select an emergency location.");
+        boolean hasGps = (lastLocationResult != null && lastLocationResult.isSuccess());
+        boolean hasCampusLoc = (selectedLocationItem != null && selectedLocationItem.getLocation() != null);
+
+        if (!hasGps && !hasCampusLoc) {
+            ModernDialog.showWarning(this, "Missing Location", "Please provide your current location or select a campus location.");
             return;
         }
 
-        int locationId = selectedLocationItem.getLocation().getId();
+        int locationId = hasCampusLoc ? selectedLocationItem.getLocation().getId() : 1;
         int peopleAffected = (Integer) peopleAffectedSpinner.getValue();
 
         if (description.length() < 5) {
@@ -811,10 +814,17 @@ public class ReportEmergencyFrame extends JFrame {
         final String finalPhoto = photoPath;
         final String finalVideo = videoPath;
 
+        Double lat = hasGps ? lastLocationResult.getLatitude() : null;
+        Double lon = hasGps ? lastLocationResult.getLongitude() : null;
+        Double acc = hasGps ? lastLocationResult.getAccuracy() : null;
+        String source = hasGps ? "GPS" : "CAMPUS_MANUAL";
+        Integer campusLocId = hasCampusLoc ? selectedLocationItem.getLocation().getId() : null;
+
         ThreadPoolManager.getInstance().submit(() -> {
             try {
                 EmergencyReport report = emergencyManager.createReport(
-                        currentUser, category, description, locationId, peopleAffected, finalPhoto, finalVideo
+                        currentUser, category, description, locationId, peopleAffected,
+                        finalPhoto, finalVideo, lat, lon, acc, java.time.LocalDateTime.now(), source, campusLocId
                 );
 
                 SwingUtilities.invokeLater(() -> showStructuredConfirmationModal(report));

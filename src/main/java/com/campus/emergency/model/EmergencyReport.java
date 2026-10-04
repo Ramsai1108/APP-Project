@@ -11,6 +11,12 @@ public class EmergencyReport {
     private String status; // SUBMITTED, PROCESSED, CANCELLED
     private String photoPath;
     private String videoPath;
+    private Double latitude;
+    private Double longitude;
+    private Double locationAccuracy;
+    private LocalDateTime locationTimestamp;
+    private String locationSource; // "GPS" or "CAMPUS_MANUAL"
+    private Integer campusLocationId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -48,6 +54,24 @@ public class EmergencyReport {
 
     public String getVideoPath() { return videoPath; }
     public void setVideoPath(String videoPath) { this.videoPath = videoPath; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+
+    public Double getLocationAccuracy() { return locationAccuracy; }
+    public void setLocationAccuracy(Double locationAccuracy) { this.locationAccuracy = locationAccuracy; }
+
+    public LocalDateTime getLocationTimestamp() { return locationTimestamp; }
+    public void setLocationTimestamp(LocalDateTime locationTimestamp) { this.locationTimestamp = locationTimestamp; }
+
+    public String getLocationSource() { return locationSource; }
+    public void setLocationSource(String locationSource) { this.locationSource = locationSource; }
+
+    public Integer getCampusLocationId() { return campusLocationId; }
+    public void setCampusLocationId(Integer campusLocationId) { this.campusLocationId = campusLocationId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

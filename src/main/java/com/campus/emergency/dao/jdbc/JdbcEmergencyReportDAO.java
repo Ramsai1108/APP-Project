@@ -15,6 +15,18 @@ public class JdbcEmergencyReportDAO implements EmergencyReportDAO {
 
     public JdbcEmergencyReportDAO(ConnectionPoolManager connectionPoolManager) {
         this.connectionPoolManager = connectionPoolManager;
+        ensureSchemaUpToDate();
+    }
+
+    private void ensureSchemaUpToDate() {
+        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
+            try { stmt.executeUpdate("ALTER TABLE emergency_reports ADD COLUMN latitude DECIMAL(10, 8) NULL"); } catch (SQLException ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE emergency_reports ADD COLUMN longitude DECIMAL(11, 8) NULL"); } catch (SQLException ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE emergency_reports ADD COLUMN location_accuracy DOUBLE NULL"); } catch (SQLException ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE emergency_reports ADD COLUMN location_timestamp TIMESTAMP NULL"); } catch (SQLException ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE emergency_reports ADD COLUMN location_source VARCHAR(30) DEFAULT 'CAMPUS_MANUAL'"); } catch (SQLException ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE emergency_reports ADD COLUMN campus_location_id INT NULL"); } catch (SQLException ignored) {}
+        } catch (Exception ignored) {}
     }
 
     private Connection getConnection() throws SQLException {
@@ -22,8 +34,9 @@ public class JdbcEmergencyReportDAO implements EmergencyReportDAO {
     }
 
     public EmergencyReport create(EmergencyReport report, Connection conn) throws SQLException {
-        String sql = "INSERT INTO emergency_reports (reporter_id, category, description, location_id, status, photo_path, video_path) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO emergency_reports (reporter_id, category, description, location_id, status, photo_path, video_path, " +
+                "latitude, longitude, location_accuracy, location_timestamp, location_source, campus_location_id) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setInt(1, report.getReporterId());
@@ -33,6 +46,13 @@ public class JdbcEmergencyReportDAO implements EmergencyReportDAO {
             stmt.setString(5, report.getStatus() != null ? report.getStatus() : "SUBMITTED");
             stmt.setString(6, report.getPhotoPath());
             stmt.setString(7, report.getVideoPath());
+
+            if (report.getLatitude() != null) stmt.setDouble(8, report.getLatitude()); else stmt.setNull(8, Types.DECIMAL);
+            if (report.getLongitude() != null) stmt.setDouble(9, report.getLongitude()); else stmt.setNull(9, Types.DECIMAL);
+            if (report.getLocationAccuracy() != null) stmt.setDouble(10, report.getLocationAccuracy()); else stmt.setNull(10, Types.DOUBLE);
+            if (report.getLocationTimestamp() != null) stmt.setTimestamp(11, Timestamp.valueOf(report.getLocationTimestamp())); else stmt.setNull(11, Types.TIMESTAMP);
+            stmt.setString(12, report.getLocationSource() != null ? report.getLocationSource() : "CAMPUS_MANUAL");
+            if (report.getCampusLocationId() != null) stmt.setInt(13, report.getCampusLocationId()); else stmt.setNull(13, Types.INTEGER);
 
             int affectedRows = stmt.executeUpdate();
             if (affectedRows == 0) {
@@ -59,7 +79,8 @@ public class JdbcEmergencyReportDAO implements EmergencyReportDAO {
 
     @Override
     public Optional<EmergencyReport> findById(int id) {
-        String sql = "SELECT id, reporter_id, category, description, location_id, status, photo_path, video_path, created_at, updated_at " +
+        String sql = "SELECT id, reporter_id, category, description, location_id, status, photo_path, video_path, " +
+                "latitude, longitude, location_accuracy, location_timestamp, location_source, campus_location_id, created_at, updated_at " +
                 "FROM emergency_reports WHERE id = ?";
 
         try (Connection conn = getConnection();
@@ -79,7 +100,8 @@ public class JdbcEmergencyReportDAO implements EmergencyReportDAO {
 
     @Override
     public List<EmergencyReport> findByReporterId(int reporterId) {
-        String sql = "SELECT id, reporter_id, category, description, location_id, status, photo_path, video_path, created_at, updated_at " +
+        String sql = "SELECT id, reporter_id, category, description, location_id, status, photo_path, video_path, " +
+                "latitude, longitude, location_accuracy, location_timestamp, location_source, campus_location_id, created_at, updated_at " +
                 "FROM emergency_reports WHERE reporter_id = ? ORDER BY id DESC";
 
         List<EmergencyReport> reports = new ArrayList<>();
@@ -100,7 +122,8 @@ public class JdbcEmergencyReportDAO implements EmergencyReportDAO {
 
     @Override
     public List<EmergencyReport> findAll() {
-        String sql = "SELECT id, reporter_id, category, description, location_id, status, photo_path, video_path, created_at, updated_at " +
+        String sql = "SELECT id, reporter_id, category, description, location_id, status, photo_path, video_path, " +
+                "latitude, longitude, location_accuracy, location_timestamp, location_source, campus_location_id, created_at, updated_at " +
                 "FROM emergency_reports ORDER BY id DESC";
 
         List<EmergencyReport> reports = new ArrayList<>();
@@ -142,6 +165,20 @@ public class JdbcEmergencyReportDAO implements EmergencyReportDAO {
         report.setStatus(rs.getString("status"));
         report.setPhotoPath(rs.getString("photo_path"));
         report.setVideoPath(rs.getString("video_path"));
+
+        try {
+            double lat = rs.getDouble("latitude");
+            if (!rs.wasNull()) report.setLatitude(lat);
+            double lon = rs.getDouble("longitude");
+            if (!rs.wasNull()) report.setLongitude(lon);
+            double acc = rs.getDouble("location_accuracy");
+            if (!rs.wasNull()) report.setLocationAccuracy(acc);
+            Timestamp ts = rs.getTimestamp("location_timestamp");
+            if (ts != null) report.setLocationTimestamp(ts.toLocalDateTime());
+            report.setLocationSource(rs.getString("location_source"));
+            int campId = rs.getInt("campus_location_id");
+            if (!rs.wasNull()) report.setCampusLocationId(campId);
+        } catch (SQLException ignored) {}
 
         Timestamp createdAt = rs.getTimestamp("created_at");
         if (createdAt != null) {

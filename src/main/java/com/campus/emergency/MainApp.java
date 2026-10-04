@@ -16,9 +16,13 @@ public class MainApp {
         // Initialize ServiceRegistry and infrastructure
         ServiceRegistry registry = ServiceRegistry.getInstance();
 
-        // Shutdown hook for connection pools and thread pools
+        // Start Localhost Web Application Server (http://localhost:3000)
+        com.campus.emergency.infrastructure.web.LocalWebServer.startServer(3000, registry);
+
+        // Shutdown hook for connection pools, thread pools, and web server
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             LoggingService.info("Shutting down Campus Emergency System...");
+            com.campus.emergency.infrastructure.web.LocalWebServer.stopServer();
             ThreadPoolManager.getInstance().shutdown();
             if (registry.getPoolManager() != null) {
                 registry.getPoolManager().shutdown();
