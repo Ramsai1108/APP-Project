@@ -21,11 +21,30 @@ public class RegistrationFrame extends JFrame {
     private ModernTextField usernameField;
     private ModernTextField emailField;
     private ModernTextField phoneField;
-    private JComboBox<Role> roleComboBox;
+    private JComboBox<RoleOption> roleComboBox;
     private ModernPasswordField passwordField;
     private ModernPasswordField confirmPasswordField;
     private ModernButton submitButton;
     private ModernButton cancelButton;
+
+    private static class RoleOption {
+        private final String label;
+        private final Role role;
+
+        public RoleOption(String label, Role role) {
+            this.label = label;
+            this.role = role;
+        }
+
+        public Role getRole() {
+            return role;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
+    }
 
     public RegistrationFrame(IdentityService identityService) {
         this(identityService, ServiceRegistry.getInstance());
@@ -83,11 +102,16 @@ public class RegistrationFrame extends JFrame {
         phoneField = new ModernTextField("e.g. 555-0199");
         card.add(phoneField);
 
-        card.add(createFieldLabel("Account Role"));
-        JLabel fixedRoleLabel = new JLabel("Campus User (USER)");
-        fixedRoleLabel.setFont(UITheme.FONT_BODY_BOLD);
-        fixedRoleLabel.setForeground(UITheme.ACCENT_BLUE);
-        card.add(fixedRoleLabel);
+        card.add(createFieldLabel("Account Role *"));
+        RoleOption[] roleOptions = new RoleOption[]{
+                new RoleOption("Student", Role.STUDENT),
+                new RoleOption("Admin", Role.ADMIN)
+        };
+        roleComboBox = new JComboBox<>(roleOptions);
+        roleComboBox.setSelectedIndex(0);
+        roleComboBox.setFont(UITheme.FONT_BODY);
+        roleComboBox.setBackground(Color.WHITE);
+        card.add(roleComboBox);
 
         card.add(createFieldLabel("Password * (min 6 chars)"));
         passwordField = new ModernPasswordField("Enter secure password");
@@ -131,7 +155,13 @@ public class RegistrationFrame extends JFrame {
         String username = usernameField.getText() != null ? usernameField.getText().trim() : "";
         String email = emailField.getText() != null ? emailField.getText().trim() : "";
         String phone = phoneField.getText() != null ? phoneField.getText().trim() : "";
-        Role role = Role.USER;
+        
+        RoleOption selectedOption = (RoleOption) roleComboBox.getSelectedItem();
+        if (selectedOption == null) {
+            ModernDialog.showWarning(this, "Validation Error", "Please select an Account Role.");
+            return;
+        }
+        Role role = selectedOption.getRole();
 
         char[] passChars = passwordField.getPassword();
         char[] confirmChars = confirmPasswordField.getPassword();

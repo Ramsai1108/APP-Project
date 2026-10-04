@@ -274,4 +274,39 @@ public class Phase3AuthenticationTest {
         });
         assertFalse(AuthenticationContext.isAuthenticated());
     }
+
+    @Test
+    @Order(17)
+    @DisplayName("17. Admin Registration and Login Succeeds")
+    public void test17_adminRegistrationAndLoginSucceeds() throws AuthenticationException {
+        assumeTrue(isDbAvailable, "Database required for admin registration test");
+
+        String username = "admin_reg_" + System.currentTimeMillis();
+        String email = username + "@campus.edu";
+        String password = "adminPass123";
+
+        User adminUser = identityService.register(username, password, "Admin Reg User", email, "555-4321", Role.ADMIN);
+        assertNotNull(adminUser);
+        assertEquals(Role.ADMIN, adminUser.getRole());
+
+        User loggedIn = identityService.login(username, password);
+        assertNotNull(loggedIn);
+        assertEquals(Role.ADMIN, loggedIn.getRole());
+        assertTrue(authorizationService.canAccessAdminConsole(loggedIn));
+    }
+
+    @Test
+    @Order(18)
+    @DisplayName("18. Invalid Role Rejection")
+    public void test18_invalidRoleRejection() {
+        if (!isDbAvailable) return;
+
+        assertThrows(AuthenticationException.class, () -> {
+            identityService.register("badrole_user", "password123", "Bad Role", "badrole@campus.edu", "555-000", "SUPER_ADMIN");
+        });
+
+        assertThrows(AuthenticationException.class, () -> {
+            identityService.register("nullrole_user", "password123", "Null Role", "nullrole@campus.edu", "555-000", (Role) null);
+        });
+    }
 }

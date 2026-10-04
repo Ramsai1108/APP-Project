@@ -23,4 +23,14 @@ public enum Role {
     public String getDisplayRole() {
         return (this == ADMIN) ? "ADMIN" : "USER";
     }
+
+    public static boolean isValidRole(String roleStr) {
+        if (roleStr == null || roleStr.trim().isEmpty()) return false;
+        try {
+            Role r = Role.valueOf(roleStr.toUpperCase().trim());
+            return r != null;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
 }

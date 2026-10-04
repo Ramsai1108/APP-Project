@@ -45,7 +45,11 @@ public class IdentityService {
             throw new AuthenticationException("Email address is already registered: " + email);
         }
 
-        Role assignedRole = (role != null) ? role : Role.STUDENT;
+        if (role == null) {
+            throw new AuthenticationException("Account Role is required");
+        }
+
+        Role assignedRole = role;
         String securePasswordHash = PasswordHasher.hashPassword(password);
 
         User newUser = new User(0, username.trim(), securePasswordHash, fullName.trim(), email.trim(), phone != null ? phone.trim() : "", assignedRole);
@@ -53,6 +57,22 @@ public class IdentityService {
 
         LOGGER.info(String.format("User registration successful for username: %s with role: %s", createdUser.getUsername(), createdUser.getRole()));
         return createdUser;
+    }
+
+    public User register(String username, String password, String fullName, String email, String phone, String roleStr) throws AuthenticationException {
+        if (!ValidationUtils.isNotNullOrEmpty(roleStr)) {
+            throw new AuthenticationException("Account Role is required");
+        }
+        if (!Role.isValidRole(roleStr)) {
+            throw new AuthenticationException("Invalid role specified: " + roleStr);
+        }
+        Role role;
+        try {
+            role = Role.valueOf(roleStr.toUpperCase().trim());
+        } catch (IllegalArgumentException e) {
+            throw new AuthenticationException("Invalid role specified: " + roleStr);
+        }
+        return register(username, password, fullName, email, phone, role);
     }
 
     public User login(String username, String password) throws AuthenticationException {
