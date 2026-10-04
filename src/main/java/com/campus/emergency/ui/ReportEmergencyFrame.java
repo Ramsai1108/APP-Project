@@ -5,9 +5,11 @@ import com.campus.emergency.infrastructure.LoggingService;
 import com.campus.emergency.infrastructure.ThreadPoolManager;
 import com.campus.emergency.model.EmergencyReport;
 import com.campus.emergency.model.Location;
+import com.campus.emergency.model.LocationResult;
 import com.campus.emergency.model.User;
 import com.campus.emergency.security.AuthenticationContext;
 import com.campus.emergency.service.EmergencyManager;
+import com.campus.emergency.service.LocationService;
 import com.campus.emergency.service.ServiceRegistry;
 import com.campus.emergency.ui.components.*;
 
@@ -23,12 +25,15 @@ import java.util.List;
 public class ReportEmergencyFrame extends JFrame {
     private final EmergencyManager emergencyManager;
     private final LocationDAO locationDAO;
+    private final LocationService locationService;
     private final Runnable onSuccessCallback;
 
     private String selectedCategory = "FIRE";
     private final List<CategoryCard> categoryCards = new ArrayList<>();
     private JTextArea descriptionArea;
     private JComboBox<LocationItem> locationComboBox;
+    private JLabel autoDetectBtn;
+    private JLabel detectedLocationStatusLabel;
     private JSpinner peopleAffectedSpinner;
     private JPanel mediaContainerPanel;
     private File attachedMediaFile = null;
@@ -53,16 +58,21 @@ public class ReportEmergencyFrame extends JFrame {
     }
 
     public ReportEmergencyFrame(EmergencyManager emergencyManager) {
-        this(emergencyManager, ServiceRegistry.getInstance().getLocationDAO(), null);
+        this(emergencyManager, ServiceRegistry.getInstance().getLocationDAO(), ServiceRegistry.getInstance().getLocationService(), null);
     }
 
     public ReportEmergencyFrame(EmergencyManager emergencyManager, LocationDAO locationDAO) {
-        this(emergencyManager, locationDAO, null);
+        this(emergencyManager, locationDAO, ServiceRegistry.getInstance().getLocationService(), null);
     }
 
     public ReportEmergencyFrame(EmergencyManager emergencyManager, LocationDAO locationDAO, Runnable onSuccessCallback) {
+        this(emergencyManager, locationDAO, ServiceRegistry.getInstance().getLocationService(), onSuccessCallback);
+    }
+
+    public ReportEmergencyFrame(EmergencyManager emergencyManager, LocationDAO locationDAO, LocationService locationService, Runnable onSuccessCallback) {
         this.emergencyManager = (emergencyManager != null) ? emergencyManager : ServiceRegistry.getInstance().getEmergencyManager();
         this.locationDAO = (locationDAO != null) ? locationDAO : ServiceRegistry.getInstance().getLocationDAO();
+        this.locationService = (locationService != null) ? locationService : ServiceRegistry.getInstance().getLocationService();
         this.onSuccessCallback = onSuccessCallback;
         initUI();
         loadLocations();
@@ -71,7 +81,7 @@ public class ReportEmergencyFrame extends JFrame {
     private void initUI() {
         setTitle("Campus Emergency Response - Report Emergency");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setSize(700, 810);
+        setSize(700, 830);
         setLocationRelativeTo(null);
         setResizable(false);
 
@@ -133,9 +143,26 @@ public class ReportEmergencyFrame extends JFrame {
         locSectionLabel.setForeground(UITheme.TEXT_PRIMARY);
         locHeaderRow.add(locSectionLabel, BorderLayout.WEST);
 
-        JLabel quickLocBtn = new JLabel("Use Campus Main Location");
+        // Quick action buttons panel on header right
+        JPanel locActionsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        locActionsPanel.setOpaque(false);
+
+        autoDetectBtn = new JLabel("📍 Auto-Detect Location");
+        autoDetectBtn.setFont(UITheme.FONT_META);
+        autoDetectBtn.setForeground(UITheme.ACCENT_BLUE);
+        autoDetectBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        autoDetectBtn.setToolTipText("Automatically detect your device coordinates via OpenStreetMap");
+        autoDetectBtn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                autoDetectCurrentLocation();
+            }
+        });
+        locActionsPanel.add(autoDetectBtn);
+
+        JLabel quickLocBtn = new JLabel("Campus Main");
         quickLocBtn.setFont(UITheme.FONT_META);
-        quickLocBtn.setForeground(UITheme.ACCENT_BLUE);
+        quickLocBtn.setForeground(UITheme.TEXT_MUTED);
         quickLocBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         quickLocBtn.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -145,7 +172,9 @@ public class ReportEmergencyFrame extends JFrame {
                 }
             }
         });
-        locHeaderRow.add(quickLocBtn, BorderLayout.EAST);
+        locActionsPanel.add(quickLocBtn);
+
+        locHeaderRow.add(locActionsPanel, BorderLayout.EAST);
         formContent.add(locHeaderRow);
         formContent.add(Box.createVerticalStrut(4));
 
@@ -155,7 +184,15 @@ public class ReportEmergencyFrame extends JFrame {
         locationComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
         locationComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
         formContent.add(locationComboBox);
-        formContent.add(Box.createVerticalStrut(12));
+
+        detectedLocationStatusLabel = new JLabel();
+        detectedLocationStatusLabel.setFont(UITheme.FONT_META);
+        detectedLocationStatusLabel.setForeground(UITheme.SUCCESS_GREEN);
+        detectedLocationStatusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        detectedLocationStatusLabel.setVisible(false);
+        formContent.add(Box.createVerticalStrut(2));
+        formContent.add(detectedLocationStatusLabel);
+        formContent.add(Box.createVerticalStrut(10));
 
         // 3. People Affected & Optional Media Row
         JPanel twoColRow = new JPanel(new GridLayout(1, 2, 14, 0));
@@ -257,6 +294,50 @@ public class ReportEmergencyFrame extends JFrame {
 
         add(mainPanel);
         getRootPane().setDefaultButton(submitButton);
+    }
+
+    private void autoDetectCurrentLocation() {
+        autoDetectBtn.setText("Detecting location...");
+        detectedLocationStatusLabel.setText("Contacting OpenStreetMap Nominatim reverse geocoder...");
+        detectedLocationStatusLabel.setForeground(UITheme.ACCENT_BLUE);
+        detectedLocationStatusLabel.setVisible(true);
+
+        ThreadPoolManager.getInstance().submit(() -> {
+            LocationResult result = locationService.detectCurrentLocation();
+            SwingUtilities.invokeLater(() -> {
+                autoDetectBtn.setText("📍 Auto-Detect Location");
+
+                if (result != null && result.isSuccess()) {
+                    String displayName = result.getDisplayName();
+                    double lat = result.getLatitude();
+                    double lon = result.getLongitude();
+                    Double acc = result.getAccuracy();
+
+                    Location detectedLocation = new Location(
+                            1, // Default fallback ID for foreign-key consistency
+                            displayName != null ? displayName : "Auto-Detected GPS Location",
+                            "Ground",
+                            "GPS",
+                            lat,
+                            lon,
+                            "Auto-detected via OpenStreetMap Nominatim"
+                    );
+
+                    LocationItem item = new LocationItem(detectedLocation);
+                    locationComboBox.addItem(item);
+                    locationComboBox.setSelectedItem(item);
+
+                    detectedLocationStatusLabel.setText(String.format("📍 Detected: %s (%.4f, %.4f ±%.0fm)",
+                            displayName, lat, lon, acc != null ? acc : 15.0));
+                    detectedLocationStatusLabel.setForeground(UITheme.SUCCESS_GREEN);
+                } else {
+                    String err = (result != null && result.getErrorMessage() != null)
+                            ? result.getErrorMessage() : "Unable to acquire coordinates";
+                    detectedLocationStatusLabel.setText("GPS Detection: " + err + " (select from list)");
+                    detectedLocationStatusLabel.setForeground(UITheme.WARNING_ORANGE);
+                }
+            });
+        });
     }
 
     private void renderDefaultMediaAttachUI() {

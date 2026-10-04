@@ -14,6 +14,14 @@ public class LoggingService {
         LOGGER.log(Level.WARNING, message);
     }
 
+    public static void debug(String message) {
+        LOGGER.log(Level.FINE, message);
+    }
+
+    public static void error(String message) {
+        LOGGER.log(Level.SEVERE, message);
+    }
+
     public static void error(String message, Throwable throwable) {
         LOGGER.log(Level.SEVERE, message, throwable);
     }

@@ -29,6 +29,7 @@ public class ServiceRegistry {
     private final ResourceDispatcher resourceDispatcher;
     private final TrackingService trackingService;
     private final DataAggregator dataAggregator;
+    private final LocationService locationService;
 
     public ServiceRegistry(DatabaseConfig config) {
         this.poolManager = ConnectionPoolManager.getInstance(config);
@@ -51,6 +52,7 @@ public class ServiceRegistry {
         this.resourceDispatcher = new ResourceDispatcher(responderDAO, resourceDAO, incidentDAO, databaseManager, notificationBroker, logDAO, authService);
         this.trackingService = new TrackingService(locationDAO, responderDAO, resourceDAO, incidentDAO, reportDAO, databaseManager, notificationBroker, logDAO, authService);
         this.dataAggregator = new DataAggregator(reportDAO, incidentDAO, responderDAO, resourceDAO);
+        this.locationService = new LocationService();
     }
 
     public ServiceRegistry(ConnectionPoolManager poolManager, DatabaseManager databaseManager,
@@ -61,6 +63,20 @@ public class ServiceRegistry {
                            PriorityEngine priorityEngine, IdentityService identityService,
                            EmergencyManager emergencyManager, ResourceDispatcher resourceDispatcher,
                            TrackingService trackingService, DataAggregator dataAggregator) {
+        this(poolManager, databaseManager, userDAO, locationDAO, reportDAO, incidentDAO, responderDAO,
+                resourceDAO, logDAO, notificationBroker, authService, priorityEngine, identityService,
+                emergencyManager, resourceDispatcher, trackingService, dataAggregator, new LocationService());
+    }
+
+    public ServiceRegistry(ConnectionPoolManager poolManager, DatabaseManager databaseManager,
+                           UserDAO userDAO, LocationDAO locationDAO, EmergencyReportDAO reportDAO,
+                           EmergencyIncidentDAO incidentDAO, ResponderDAO responderDAO,
+                           ResourceDAO resourceDAO, SystemLogDAO logDAO,
+                           NotificationBroker notificationBroker, AuthorizationService authService,
+                           PriorityEngine priorityEngine, IdentityService identityService,
+                           EmergencyManager emergencyManager, ResourceDispatcher resourceDispatcher,
+                           TrackingService trackingService, DataAggregator dataAggregator,
+                           LocationService locationService) {
         this.poolManager = poolManager;
         this.databaseManager = databaseManager;
         this.userDAO = userDAO;
@@ -78,6 +94,7 @@ public class ServiceRegistry {
         this.resourceDispatcher = resourceDispatcher;
         this.trackingService = trackingService;
         this.dataAggregator = dataAggregator;
+        this.locationService = (locationService != null) ? locationService : new LocationService();
     }
 
     public static synchronized ServiceRegistry getInstance() {
@@ -108,4 +125,5 @@ public class ServiceRegistry {
     public ResourceDispatcher getResourceDispatcher() { return resourceDispatcher; }
     public TrackingService getTrackingService() { return trackingService; }
     public DataAggregator getDataAggregator() { return dataAggregator; }
+    public LocationService getLocationService() { return locationService; }
 }
