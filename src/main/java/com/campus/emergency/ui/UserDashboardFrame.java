@@ -10,6 +10,7 @@ import com.campus.emergency.model.Location;
 import com.campus.emergency.model.User;
 import com.campus.emergency.security.AuthenticationContext;
 import com.campus.emergency.service.EmergencyManager;
+import com.campus.emergency.service.IncidentUpdateService;
 import com.campus.emergency.service.ServiceRegistry;
 import com.campus.emergency.service.TrackingService;
 import com.campus.emergency.ui.components.*;
@@ -31,6 +32,7 @@ public class UserDashboardFrame extends JFrame {
     private final TrackingService trackingService;
     private final EmergencyReportDAO reportDAO;
     private final LocationDAO locationDAO;
+    private final IncidentUpdateService incidentUpdateService;
 
     private ModernTable reportsTable;
     private DefaultTableModel tableModel;
@@ -55,18 +57,57 @@ public class UserDashboardFrame extends JFrame {
         this(ServiceRegistry.getInstance().getEmergencyManager(),
                 ServiceRegistry.getInstance().getTrackingService(),
                 ServiceRegistry.getInstance().getReportDAO(),
-                ServiceRegistry.getInstance().getLocationDAO());
+                ServiceRegistry.getInstance().getLocationDAO(),
+                ServiceRegistry.getInstance().getIncidentUpdateService());
     }
 
     public UserDashboardFrame(EmergencyManager emergencyManager, TrackingService trackingService,
                               EmergencyReportDAO reportDAO, LocationDAO locationDAO) {
+        this(emergencyManager, trackingService, reportDAO, locationDAO, ServiceRegistry.getInstance().getIncidentUpdateService());
+    }
+
+    public UserDashboardFrame(EmergencyManager emergencyManager, TrackingService trackingService,
+                              EmergencyReportDAO reportDAO, LocationDAO locationDAO,
+                              IncidentUpdateService incidentUpdateService) {
         this.emergencyManager = (emergencyManager != null) ? emergencyManager : ServiceRegistry.getInstance().getEmergencyManager();
         this.trackingService = (trackingService != null) ? trackingService : ServiceRegistry.getInstance().getTrackingService();
         this.reportDAO = (reportDAO != null) ? reportDAO : ServiceRegistry.getInstance().getReportDAO();
         this.locationDAO = (locationDAO != null) ? locationDAO : ServiceRegistry.getInstance().getLocationDAO();
+        this.incidentUpdateService = (incidentUpdateService != null) ? incidentUpdateService : ServiceRegistry.getInstance().getIncidentUpdateService();
 
         initUI();
+        setupRealTimePolling();
         refreshReports();
+    }
+
+    private void setupRealTimePolling() {
+        if (incidentUpdateService != null) {
+            incidentUpdateService.addListener(new IncidentUpdateService.IncidentUpdateListener() {
+                @Override
+                public void onNewIncidents(List<EmergencyIncident> newIncidents) {
+                    refreshReports();
+                }
+
+                @Override
+                public void onIncidentsChanged(List<EmergencyIncident> currentIncidents) {
+                    refreshReports();
+                }
+            });
+            incidentUpdateService.start(2);
+        }
+
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                stopRealTimePolling();
+            }
+        });
+    }
+
+    private void stopRealTimePolling() {
+        if (incidentUpdateService != null) {
+            incidentUpdateService.stop();
+        }
     }
 
     private void initUI() {
@@ -746,6 +787,7 @@ public class UserDashboardFrame extends JFrame {
     }
 
     private void handleLogout() {
+        stopRealTimePolling();
         AuthenticationContext.clear();
         dispose();
         SwingUtilities.invokeLater(() -> {

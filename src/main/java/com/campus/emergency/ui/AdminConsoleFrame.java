@@ -35,6 +35,7 @@ public class AdminConsoleFrame extends JFrame {
     private final EmergencyReportDAO reportDAO;
     private final LocationDAO locationDAO;
     private final UserDAO userDAO;
+    private final IncidentUpdateService incidentUpdateService;
 
     // Header & Health Strip
     private JLabel lastRefreshLabel;
@@ -159,23 +160,149 @@ public class AdminConsoleFrame extends JFrame {
                 ServiceRegistry.getInstance().getDataAggregator(),
                 ServiceRegistry.getInstance().getLogDAO(),
                 ServiceRegistry.getInstance().getEmergencyManager(),
-                ServiceRegistry.getInstance().getResourceDispatcher());
+                ServiceRegistry.getInstance().getResourceDispatcher(),
+                ServiceRegistry.getInstance().getIncidentUpdateService());
     }
 
     public AdminConsoleFrame(TrackingService trackingService, DataAggregator dataAggregator,
                               SystemLogDAO logDAO, EmergencyManager emergencyManager,
                               ResourceDispatcher resourceDispatcher) {
+        this(trackingService, dataAggregator, logDAO, emergencyManager, resourceDispatcher, ServiceRegistry.getInstance().getIncidentUpdateService());
+    }
+
+    public AdminConsoleFrame(TrackingService trackingService, DataAggregator dataAggregator,
+                              SystemLogDAO logDAO, EmergencyManager emergencyManager,
+                              ResourceDispatcher resourceDispatcher,
+                              IncidentUpdateService incidentUpdateService) {
         this.trackingService = (trackingService != null) ? trackingService : ServiceRegistry.getInstance().getTrackingService();
         this.dataAggregator = (dataAggregator != null) ? dataAggregator : ServiceRegistry.getInstance().getDataAggregator();
         this.logDAO = (logDAO != null) ? logDAO : ServiceRegistry.getInstance().getLogDAO();
         this.emergencyManager = (emergencyManager != null) ? emergencyManager : ServiceRegistry.getInstance().getEmergencyManager();
         this.resourceDispatcher = (resourceDispatcher != null) ? resourceDispatcher : ServiceRegistry.getInstance().getResourceDispatcher();
+        this.incidentUpdateService = (incidentUpdateService != null) ? incidentUpdateService : ServiceRegistry.getInstance().getIncidentUpdateService();
         this.reportDAO = ServiceRegistry.getInstance().getReportDAO();
         this.locationDAO = ServiceRegistry.getInstance().getLocationDAO();
         this.userDAO = ServiceRegistry.getInstance().getUserDAO();
 
         initUI();
+        setupRealTimePolling();
         refreshConsole();
+    }
+
+    private void setupRealTimePolling() {
+        if (incidentUpdateService != null) {
+            incidentUpdateService.addListener(new IncidentUpdateService.IncidentUpdateListener() {
+                @Override
+                public void onNewIncidents(List<EmergencyIncident> newIncidents) {
+                    refreshConsole();
+                    for (EmergencyIncident inc : newIncidents) {
+                        showNewIncidentToast(inc);
+                    }
+                }
+
+                @Override
+                public void onIncidentsChanged(List<EmergencyIncident> currentIncidents) {
+                    refreshConsole();
+                }
+            });
+            incidentUpdateService.start(2);
+        }
+
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                stopRealTimePolling();
+            }
+        });
+    }
+
+    private void stopRealTimePolling() {
+        if (incidentUpdateService != null) {
+            incidentUpdateService.stop();
+        }
+    }
+
+    private void showNewIncidentToast(EmergencyIncident inc) {
+        EmergencyReport report = cachedReports.stream().filter(r -> r.getId() == inc.getReportId()).findFirst().orElse(null);
+        Location loc = report != null ? cachedLocations.stream().filter(l -> l.getId() == report.getLocationId()).findFirst().orElse(null) : null;
+
+        String typeStr = report != null ? report.getCategory() : "EMERGENCY";
+        String locStr = loc != null ? loc.getBuildingName() + " (Room " + loc.getRoomNumber() + ")" : "Campus Location";
+        String reporterStr = report != null ? "Student (User #" + report.getReporterId() + ")" : "Student";
+
+        JDialog toast = new JDialog(this, "New Emergency Reported — Incident #" + inc.getId(), false);
+        toast.setSize(440, 250);
+
+        try {
+            Point locOnScreen = getLocationOnScreen();
+            toast.setLocation(locOnScreen.x + Math.max(10, getWidth() - 460), locOnScreen.y + 60);
+        } catch (Exception e) {
+            toast.setLocationRelativeTo(this);
+        }
+
+        JPanel card = new JPanel(new BorderLayout(0, 10));
+        card.setBackground(new Color(254, 242, 242));
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(UITheme.EMERGENCY_RED, 2),
+                new EmptyBorder(14, 16, 14, 16)
+        ));
+
+        JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        header.setOpaque(false);
+        header.add(new JLabel(new VectorIcon(VectorIcon.Type.ALERT, 22, UITheme.EMERGENCY_RED)));
+
+        JLabel titleLbl = new JLabel("NEW INCIDENT RECEIVED — #" + inc.getId());
+        titleLbl.setFont(UITheme.FONT_TITLE);
+        titleLbl.setForeground(UITheme.EMERGENCY_RED);
+        header.add(titleLbl);
+        card.add(header, BorderLayout.NORTH);
+
+        JPanel details = new JPanel(new GridLayout(5, 2, 4, 4));
+        details.setOpaque(false);
+
+        details.add(createDetailLabel("Incident:"));
+        details.add(createDetailValue("#" + inc.getId()));
+
+        details.add(createDetailLabel("Type:"));
+        details.add(createDetailValue(typeStr));
+
+        details.add(createDetailLabel("Priority:"));
+        details.add(createDetailValue(inc.getPriority()));
+
+        details.add(createDetailLabel("Location:"));
+        details.add(createDetailValue(locStr));
+
+        details.add(createDetailLabel("Reported by:"));
+        details.add(createDetailValue(reporterStr));
+
+        card.add(details, BorderLayout.CENTER);
+
+        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        btnRow.setOpaque(false);
+
+        ModernButton viewBtn = new ModernButton("View Details", VectorIcon.Type.EYE, ModernButton.ButtonStyle.DANGER);
+        viewBtn.setPreferredSize(new Dimension(120, 32));
+        viewBtn.setFont(UITheme.FONT_SMALL);
+        viewBtn.addActionListener(e -> {
+            toast.dispose();
+            inspectIncidentDetailsById(inc.getId());
+        });
+
+        ModernButton dismissBtn = new ModernButton("Dismiss", ModernButton.ButtonStyle.SECONDARY);
+        dismissBtn.setPreferredSize(new Dimension(85, 32));
+        dismissBtn.setFont(UITheme.FONT_SMALL);
+        dismissBtn.addActionListener(e -> toast.dispose());
+
+        btnRow.add(viewBtn);
+        btnRow.add(dismissBtn);
+        card.add(btnRow, BorderLayout.SOUTH);
+
+        toast.setContentPane(card);
+        toast.setVisible(true);
+
+        try {
+            Toolkit.getDefaultToolkit().beep();
+        } catch (Exception ignored) {}
     }
 
     private void initUI() {
@@ -1507,6 +1634,7 @@ public class AdminConsoleFrame extends JFrame {
     }
 
     private void handleLogout() {
+        stopRealTimePolling();
         AuthenticationContext.clear();
         dispose();
         SwingUtilities.invokeLater(() -> {

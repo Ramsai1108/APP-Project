@@ -30,6 +30,7 @@ public class ServiceRegistry {
     private final TrackingService trackingService;
     private final DataAggregator dataAggregator;
     private final LocationService locationService;
+    private final IncidentUpdateService incidentUpdateService;
 
     public ServiceRegistry(DatabaseConfig config) {
         this.poolManager = ConnectionPoolManager.getInstance(config);
@@ -53,6 +54,7 @@ public class ServiceRegistry {
         this.trackingService = new TrackingService(locationDAO, responderDAO, resourceDAO, incidentDAO, reportDAO, databaseManager, notificationBroker, logDAO, authService);
         this.dataAggregator = new DataAggregator(reportDAO, incidentDAO, responderDAO, resourceDAO);
         this.locationService = new LocationService();
+        this.incidentUpdateService = new IncidentUpdateService(incidentDAO);
     }
 
     public ServiceRegistry(ConnectionPoolManager poolManager, DatabaseManager databaseManager,
@@ -95,6 +97,7 @@ public class ServiceRegistry {
         this.trackingService = trackingService;
         this.dataAggregator = dataAggregator;
         this.locationService = (locationService != null) ? locationService : new LocationService();
+        this.incidentUpdateService = new IncidentUpdateService(this.incidentDAO);
     }
 
     public static synchronized ServiceRegistry getInstance() {
@@ -126,4 +129,5 @@ public class ServiceRegistry {
     public TrackingService getTrackingService() { return trackingService; }
     public DataAggregator getDataAggregator() { return dataAggregator; }
     public LocationService getLocationService() { return locationService; }
+    public IncidentUpdateService getIncidentUpdateService() { return incidentUpdateService; }
 }
