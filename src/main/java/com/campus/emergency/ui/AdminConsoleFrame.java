@@ -51,10 +51,20 @@ public class AdminConsoleFrame extends JFrame {
     // Operations Center CardLayout
     private CardLayout sectionCardLayout;
     private JPanel sectionContainerPanel;
-    private String activeSectionName = "INCIDENTS";
+    private String activeSectionName = "OVERVIEW";
     private final List<ModernButton> navButtons = new ArrayList<>();
 
-    // Section 1: Incidents
+    // Section 1: Executive Overview
+    private MetricCard fireCountCard;
+    private MetricCard medicalCountCard;
+    private MetricCard hazardCountCard;
+    private MetricCard securityCountCard;
+    private MetricCard facilityCountCard;
+    private MetricCard otherCountCard;
+    private ModernTable overviewIncidentsTable;
+    private DefaultTableModel overviewIncidentsModel;
+
+    // Section 2: Incident Management
     private ModernTable incidentsTable;
     private DefaultTableModel incidentsModel;
     private JComboBox<String> statusFilterBox;
@@ -284,11 +294,12 @@ public class AdminConsoleFrame extends JFrame {
         JPanel navBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         navBar.setOpaque(false);
 
-        addNavButton(navBar, "INCIDENTS", "Incidents", VectorIcon.Type.ALERT);
+        addNavButton(navBar, "OVERVIEW", "Executive Overview", VectorIcon.Type.CHART);
+        addNavButton(navBar, "INCIDENTS", "Incident Management", VectorIcon.Type.ALERT);
         addNavButton(navBar, "LIVE_OPS", "Live Operations", VectorIcon.Type.ACTIVITY);
         addNavButton(navBar, "DISPATCH", "Dispatch & Resources", VectorIcon.Type.SERVER);
-        addNavButton(navBar, "USERS", "Campus Users", VectorIcon.Type.USER);
-        addNavButton(navBar, "BROADCASTS", "Broadcasts", VectorIcon.Type.BELL);
+        addNavButton(navBar, "USERS", "User Management", VectorIcon.Type.USER);
+        addNavButton(navBar, "BROADCASTS", "Broadcasts & Notifications", VectorIcon.Type.BELL);
         addNavButton(navBar, "AUDIT_LOGS", "Audit Logs", VectorIcon.Type.LIST);
         addNavButton(navBar, "SETTINGS", "System Settings", VectorIcon.Type.SHIELD);
 
@@ -299,6 +310,7 @@ public class AdminConsoleFrame extends JFrame {
         sectionContainerPanel = new JPanel(sectionCardLayout);
         sectionContainerPanel.setOpaque(false);
 
+        sectionContainerPanel.add(buildExecutiveOverviewSection(), "OVERVIEW");
         sectionContainerPanel.add(buildIncidentsSection(), "INCIDENTS");
         sectionContainerPanel.add(buildLiveOpsSection(), "LIVE_OPS");
         sectionContainerPanel.add(buildDispatchSection(), "DISPATCH");
@@ -313,13 +325,13 @@ public class AdminConsoleFrame extends JFrame {
         mainPanel.add(centerWrapper, BorderLayout.CENTER);
         add(mainPanel);
 
-        // Default active section
-        switchSection("INCIDENTS");
+        // Default active section: Executive Overview
+        switchSection("OVERVIEW");
     }
 
     private void addNavButton(JPanel parent, String sectionKey, String label, VectorIcon.Type iconType) {
         ModernButton btn = new ModernButton(label, iconType, ModernButton.ButtonStyle.SECONDARY);
-        btn.setPreferredSize(new Dimension(160, 36));
+        btn.setPreferredSize(new Dimension(150, 36));
         btn.setFont(UITheme.FONT_SMALL);
         btn.addActionListener(e -> switchSection(sectionKey));
         navButtons.add(btn);
@@ -331,12 +343,12 @@ public class AdminConsoleFrame extends JFrame {
         sectionCardLayout.show(sectionContainerPanel, sectionKey);
 
         for (ModernButton btn : navButtons) {
-            boolean isActive = btn.getText().toLowerCase().contains(sectionKey.toLowerCase().replace("_", "")) ||
-                    (sectionKey.equals("INCIDENTS") && btn.getText().contains("Incidents")) ||
+            boolean isActive = (sectionKey.equals("OVERVIEW") && btn.getText().contains("Overview")) ||
+                    (sectionKey.equals("INCIDENTS") && btn.getText().contains("Incident")) ||
                     (sectionKey.equals("LIVE_OPS") && btn.getText().contains("Live")) ||
                     (sectionKey.equals("DISPATCH") && btn.getText().contains("Dispatch")) ||
-                    (sectionKey.equals("USERS") && btn.getText().contains("Users")) ||
-                    (sectionKey.equals("BROADCASTS") && btn.getText().contains("Broadcasts")) ||
+                    (sectionKey.equals("USERS") && btn.getText().contains("User")) ||
+                    (sectionKey.equals("BROADCASTS") && btn.getText().contains("Broadcast")) ||
                     (sectionKey.equals("AUDIT_LOGS") && btn.getText().contains("Audit")) ||
                     (sectionKey.equals("SETTINGS") && btn.getText().contains("Settings"));
 
@@ -345,7 +357,65 @@ public class AdminConsoleFrame extends JFrame {
     }
 
     // =========================================================================
-    // SECTION 1: INCIDENTS MANAGEMENT
+    // SECTION 1: EXECUTIVE OVERVIEW
+    // =========================================================================
+    private JPanel buildExecutiveOverviewSection() {
+        JPanel panel = new JPanel(new BorderLayout(0, 12));
+        panel.setOpaque(false);
+
+        // Top Category Breakdown Stat Cards (6 Emergency Categories)
+        JPanel catGrid = new JPanel(new GridLayout(1, 6, 8, 0));
+        catGrid.setOpaque(false);
+
+        fireCountCard = new MetricCard(VectorIcon.Type.FIRE, "Fire / Smoke", "0", UITheme.EMERGENCY_RED);
+        medicalCountCard = new MetricCard(VectorIcon.Type.MEDICAL, "Medical", "0", UITheme.EMERGENCY_RED);
+        hazardCountCard = new MetricCard(VectorIcon.Type.HAZARD, "Hazard / Gas", "0", UITheme.WARNING_ORANGE);
+        securityCountCard = new MetricCard(VectorIcon.Type.LOCK, "Security", "0", UITheme.ACCENT_BLUE);
+        facilityCountCard = new MetricCard(VectorIcon.Type.BUILDING, "Facility", "0", UITheme.INFO_CYAN);
+        otherCountCard = new MetricCard(VectorIcon.Type.HELP, "Other Alert", "0", UITheme.TEXT_SECONDARY);
+
+        catGrid.add(fireCountCard);
+        catGrid.add(medicalCountCard);
+        catGrid.add(hazardCountCard);
+        catGrid.add(securityCountCard);
+        catGrid.add(facilityCountCard);
+        catGrid.add(otherCountCard);
+        panel.add(catGrid, BorderLayout.NORTH);
+
+        // Center Executive Summary Table
+        ModernCardPanel card = new ModernCardPanel(new BorderLayout(0, 10), 12);
+        JLabel title = new JLabel("Executive Operational Summary — Active & Recent Incidents");
+        title.setFont(UITheme.FONT_SUBTITLE);
+        title.setForeground(UITheme.TEXT_PRIMARY);
+        card.add(title, BorderLayout.NORTH);
+
+        String[] cols = {"ID", "Category", "Priority", "Location", "Reported Time", "Status", "Assigned Dispatcher"};
+        overviewIncidentsModel = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int col) { return false; }
+        };
+
+        overviewIncidentsTable = new ModernTable(overviewIncidentsModel);
+        JScrollPane scroll = new JScrollPane(overviewIncidentsTable);
+        scroll.setBorder(BorderFactory.createLineBorder(UITheme.CARD_BORDER));
+        card.add(scroll, BorderLayout.CENTER);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actions.setOpaque(false);
+
+        ModernButton viewIncidentsBtn = new ModernButton("Go to Incident Management", VectorIcon.Type.ALERT, ModernButton.ButtonStyle.PRIMARY);
+        viewIncidentsBtn.setPreferredSize(new Dimension(210, 32));
+        viewIncidentsBtn.addActionListener(e -> switchSection("INCIDENTS"));
+        actions.add(viewIncidentsBtn);
+
+        card.add(actions, BorderLayout.SOUTH);
+        panel.add(card, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    // =========================================================================
+    // SECTION 2: INCIDENTS MANAGEMENT
     // =========================================================================
     private JPanel buildIncidentsSection() {
         ModernCardPanel card = new ModernCardPanel(new BorderLayout(0, 10), 14);
@@ -878,6 +948,19 @@ public class AdminConsoleFrame extends JFrame {
                     if (inc.getAssignedDispatcherId() == null) unassignedCount++;
                 }
 
+                int fireCnt = 0, medCnt = 0, hazCnt = 0, secCnt = 0, facCnt = 0, othCnt = 0;
+                for (EmergencyReport r : reports) {
+                    String cat = r.getCategory() != null ? r.getCategory().toUpperCase() : "";
+                    switch (cat) {
+                        case "FIRE": fireCnt++; break;
+                        case "MEDICAL": medCnt++; break;
+                        case "HAZARD": hazCnt++; break;
+                        case "SECURITY": secCnt++; break;
+                        case "FACILITY": facCnt++; break;
+                        default: othCnt++; break;
+                    }
+                }
+
                 final int fTotal = totalCount;
                 final int fActive = activeCount;
                 final int fCritical = criticalCount;
@@ -886,6 +969,7 @@ public class AdminConsoleFrame extends JFrame {
                 final int fUnassigned = unassignedCount;
                 final int fResponders = responders.size();
                 final int fAvailRes = (int) resources.stream().filter(r -> "AVAILABLE".equalsIgnoreCase(r.getStatus())).count();
+                final int fFire = fireCnt, fMed = medCnt, fHaz = hazCnt, fSec = secCnt, fFac = facCnt, fOth = othCnt;
 
                 SwingUtilities.invokeLater(() -> {
                     lastRefreshLabel.setText("LAST SYNC: " + LocalDateTime.now().format(timeFormatter));
@@ -897,11 +981,19 @@ public class AdminConsoleFrame extends JFrame {
                     usersCard.setValue(String.valueOf(fUsers));
                     resourceCard.setValue(fAvailRes + " / " + resources.size());
 
+                    if (fireCountCard != null) fireCountCard.setValue(String.valueOf(fFire));
+                    if (medicalCountCard != null) medicalCountCard.setValue(String.valueOf(fMed));
+                    if (hazardCountCard != null) hazardCountCard.setValue(String.valueOf(fHaz));
+                    if (securityCountCard != null) securityCountCard.setValue(String.valueOf(fSec));
+                    if (facilityCountCard != null) facilityCountCard.setValue(String.valueOf(fFac));
+                    if (otherCountCard != null) otherCountCard.setValue(String.valueOf(fOth));
+
                     liveActiveCard.setValue(String.valueOf(fActive));
                     liveCriticalCard.setValue(String.valueOf(fCritical));
                     liveUnassignedCard.setValue(String.valueOf(fUnassigned));
                     liveRespondersCard.setValue(String.valueOf(fResponders));
 
+                    populateOverviewTable();
                     applyIncidentFilters();
                     populateLiveOpsTable();
                     populateDispatchBoxes();
@@ -913,6 +1005,25 @@ public class AdminConsoleFrame extends JFrame {
                 LoggingService.error("Failed to refresh Admin Console data: " + e.getMessage(), e);
             }
         });
+    }
+
+    private void populateOverviewTable() {
+        if (overviewIncidentsModel == null) return;
+        overviewIncidentsModel.setRowCount(0);
+        for (EmergencyIncident inc : cachedIncidents) {
+            EmergencyReport report = cachedReports.stream().filter(r -> r.getId() == inc.getReportId()).findFirst().orElse(null);
+            Location loc = report != null ? cachedLocations.stream().filter(l -> l.getId() == report.getLocationId()).findFirst().orElse(null) : null;
+            String locStr = loc != null ? loc.getBuildingName() + " (Room " + loc.getRoomNumber() + ")" : "--";
+            overviewIncidentsModel.addRow(new Object[]{
+                    inc.getId(),
+                    report != null ? report.getCategory() : "OTHER",
+                    inc.getPriority(),
+                    locStr,
+                    inc.getCreatedAt() != null ? inc.getCreatedAt().format(timeFormatter) : "--",
+                    inc.getStatus(),
+                    inc.getAssignedDispatcherId() != null ? "Dispatcher #" + inc.getAssignedDispatcherId() : "UNASSIGNED"
+            });
+        }
     }
 
     private void applyIncidentFilters() {
