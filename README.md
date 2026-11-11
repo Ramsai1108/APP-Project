@@ -16,13 +16,14 @@ An enterprise-grade, **100% Java Swing Desktop Application** designed for rapid 
   - [ADMIN Operations Console](#admin-operations-console)
 - [Location Detection & Manual Fallback](#location-detection--manual-fallback)
 - [Running Unit & Integration Tests](#running-unit--integration-tests)
+- [Project Output Screenshots](#project-output-screenshots)
 
 ---
 
 ## 🏗 Architecture & Tech Stack
 
 The application is built using a clean 5-layer Java desktop architecture:
-- **Language & Runtime**: Java 17+ (Fully compatible with Java 24 / 26)
+- **Language & Runtime**: Java 24 (required by `pom.xml` via Maven compiler release 24)
 - **User Interface**: Pure Java Swing / AWT (Custom modern UI components with `ModernCardPanel`, `MetricCard`, `ModernTable`, `StatusBadge`, `PriorityBadge`, and `VectorIcon`)
 - **Persistence**: JDBC with **HikariCP** Connection Pooling & **MySQL 8.0**
 - **Build & Dependency Management**: Apache Maven
@@ -35,7 +36,7 @@ The application is built using a clean 5-layer Java desktop architecture:
 ## ⚙ Prerequisites
 
 Before building and running the project, ensure you have installed:
-- **Java Development Kit (JDK)**: JDK 17 or higher (tested with JDK 26)
+- **Java Development Kit (JDK)**: JDK 24 or a compatible JDK that supports Java release 24
 - **Apache Maven**: Version 3.8+
 - **MySQL Database Server**: Version 8.0+
 
@@ -44,12 +45,16 @@ Before building and running the project, ensure you have installed:
 ## 🗄 Database Setup Instructions
 
 1. **Start MySQL Service** on your machine.
-2. **Execute Database SQL Script**:
-   Run the schema initialization script located in `database/schema.sql`:
+2. **Initialize the schema** by running `database/schema.sql`:
    ```bash
    mysql -u root -p < database/schema.sql
    ```
-   *This script automatically creates the `campus_emergency_db` database, table structures (users, emergency_reports, emergency_incidents, resources, responders, system_logs, locations), and seeds default campus locations.*
+   This creates `campus_emergency_db` and the tables required by the application, including users, roles, locations, emergency reports and incidents, resources, responders, and system logs.
+3. **Load the optional development seed data**:
+   ```bash
+   mysql -u root -p campus_emergency_db < database/seed.sql
+   ```
+   The seed script adds the documented roles, demo users, campus locations, a responder, resources, and an initial system log. It is intended for development/demo use.
 
 ---
 
@@ -80,7 +85,7 @@ export DB_PASS="YourSecurePassword"
 
 ## 🔨 Building the Executable JAR
 
-Run Maven package to compile the source code, execute tests, and package the shaded executable JAR:
+Compile the source code and package the shaded executable JAR without running tests:
 
 ```bash
 mvn clean package -DskipTests
@@ -143,3 +148,75 @@ Run the full suite of automated unit and integration tests:
 ```bash
 mvn clean test
 ```
+
+---
+
+## 📸 Project Output Screenshots
+
+The following screenshots show the implemented Campus Emergency Response System flows. Personal phone numbers and email addresses visible in the original registration captures have been redacted for public repository use.
+
+### Authentication and account setup
+
+#### Login
+
+The secure portal entry screen for campus users and administrators.
+
+![Campus Emergency Response System login](screenshots/login.jpg)
+
+#### Student registration
+
+Student account creation with campus identity and role selection.
+
+![Student registration](screenshots/student-registration.jpg)
+
+#### Administrator registration
+
+Administrator account creation with the administrator role selected.
+
+![Administrator registration](screenshots/admin-registration.jpg)
+
+### Student emergency workflow
+
+#### Student dashboard
+
+The student portal dashboard showing emergency actions, report counters, and notifications.
+
+![Student dashboard](screenshots/student-dashboard.jpg)
+
+#### Report an emergency
+
+The emergency report form for selecting an incident category, location, affected people, evidence, and description.
+
+![Report an emergency](screenshots/report-emergency.jpg)
+
+#### Report submission confirmation
+
+Confirmation shown after an emergency report is submitted to the campus response center.
+
+![Emergency report submitted](screenshots/report-success.jpg)
+
+#### Incident tracking
+
+The student view of a submitted report and its operational status progression.
+
+![Incident tracking](screenshots/incident-tracking.jpg)
+
+### Administrator operations
+
+#### Executive administrator dashboard
+
+The Emergency Operations Center overview with system status, incident metrics, category totals, and recent incidents.
+
+![Administrator dashboard](screenshots/admin-dashboard.jpg)
+
+#### Incident management
+
+The administrator incident-management view for filtering, prioritizing, and updating emergency records.
+
+![Incident management](screenshots/incident-management.jpg)
+
+#### Incident details
+
+Detailed incident inspection showing category, location, reporter, dispatcher, status, and situation description.
+
+![Incident details](screenshots/incident-details.jpg)
