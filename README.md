@@ -221,23 +221,3 @@ The administrator incident-management view for filtering, prioritizing, and upda
 Detailed incident inspection showing category, location, reporter, dispatcher, status, and situation description.
 
 ![Incident details](screenshots/incident-details.jpg)
-
-### SURAKSH Safety Evaluation Output
-
-The following additional captures document the real-time safety-evaluation and alert-monitoring output screens included with the project materials. Phone numbers and one-time passwords visible in the alert capture have been redacted for public repository use.
-
-#### Accident detection and tracking
-
-![SURAKSH accident detection and tracking](screenshots/safety-evaluation-accident.png)
-
-#### Fire detection from CCTV footage
-
-![SURAKSH fire detection from CCTV footage](screenshots/safety-evaluation-fire-cctv.png)
-
-#### Confirmed fire evaluation
-
-![SURAKSH confirmed fire evaluation](screenshots/safety-evaluation-fire-confirmed.png)
-
-#### Real-time incident alerts
-
-![SURAKSH real-time incident alerts](screenshots/alerts-incident-proof.png)
